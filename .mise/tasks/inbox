@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+#MISE description="List inbox messages"
+#USAGE flag "--limit <limit>" help="Number of messages to show" default="15"
+#USAGE flag "--unread" help="Show only unread messages"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+limit="${usage_limit:-15}"
+
+# Build endpoint (spaces must be URL-encoded for curl)
+endpoint="/me/mailFolders/inbox/messages?\$top=${limit}&\$orderby=receivedDateTime%20desc"
+endpoint+='&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,hasAttachments,importance'
+
+if [ "${usage_unread:-}" = "true" ]; then
+  endpoint+='&$filter=isRead%20eq%20false'
+fi
+
+response=$(graph_get "$endpoint")
+
+# Check for errors
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$response" | jq '.value'
+  exit 0
+fi
+
+# Human-readable output
+count=$(echo "$response" | jq '.value | length')
+
+if [ "$count" -eq 0 ]; then
+  if [ "${usage_unread:-}" = "true" ]; then
+    echo "No unread messages."
+  else
+    echo "Inbox is empty."
+  fi
+  exit 0
+fi
+
+# Count unread
+unread_count=$(echo "$response" | jq '[.value[] | select(.isRead == false)] | length')
+
+if [ "${usage_unread:-}" = "true" ]; then
+  echo "Unread messages ($unread_count):"
+else
+  echo "Inbox ($count messages, $unread_count unread):"
+fi
+echo ""
+
+# Print each message using a single jq call for performance
+echo "$response" | jq -r '
+  .value | to_entries[] |
+  .key as $idx |
+  .value |
+  [
+    (if .isRead then " " else "*" end),
+    (if .importance == "high" then "!" else " " end),
+    ($idx + 1 | tostring),
+    (.from.emailAddress.name // .from.emailAddress.address // "unknown"),
+    (.subject // "(no subject)"),
+    .receivedDateTime,
+    (if .hasAttachments then " [+]" else "" end)
+  ] | @tsv
+' | while IFS=$'\t' read -r marker imp num from subject date_raw attach; do
+  date_fmt=$(format_date "$date_raw")
+  from_short=$(truncate "$from" 25)
+  subject_short=$(truncate "$subject" 50)
+  printf "%s%s %2s  %-25s  %-50s  %s%s\n" "$marker" "$imp" "$num" "$from_short" "$subject_short" "$date_fmt" "$attach"
+done
+
+echo ""
+echo "Use 'email read <number>' to read a message."

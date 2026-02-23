@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#MISE description="Clear stored authentication tokens"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+if [ -f "$TOKEN_FILE" ]; then
+  rm "$TOKEN_FILE"
+  echo "Logged out. Tokens cleared."
+else
+  echo "No tokens found — already logged out."
+fi

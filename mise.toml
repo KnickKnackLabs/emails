@@ -1,0 +1,5 @@
+[tools]
+jq = "latest"
+
+[env]
+EMAIL_AUTH_DIR = "{{env.HOME}}/.config/email"

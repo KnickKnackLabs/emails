@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+#MISE description="Archive email message(s)"
+#USAGE arg "<ids>" help="Message number(s) from inbox, comma-separated"
+#USAGE flag "--confirm" help="Skip confirmation prompt"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+ids_str="${usage_ids:?Usage: email archive <number>[,<number>...]}"
+
+# Get Archive folder ID
+archive_id=$(graph_get "/me/mailFolders?\$filter=displayName eq 'Archive'&\$select=id" | jq -r '.value[0].id // empty')
+
+if [ -z "$archive_id" ]; then
+  echo "Error: Archive folder not found." >&2
+  exit 1
+fi
+
+# Parse comma-separated numbers
+IFS=',' read -ra nums <<< "$ids_str"
+
+# Resolve all message numbers first
+declare -a msg_ids
+declare -a msg_subjects
+
+max_num=0
+for n in "${nums[@]}"; do
+  n=$(echo "$n" | tr -d ' ')
+  [ "$n" -gt "$max_num" ] && max_num="$n"
+done
+
+inbox=$(graph_get "/me/mailFolders/inbox/messages?\$top=$max_num&\$orderby=receivedDateTime%20desc&\$select=id,subject,from")
+
+for n in "${nums[@]}"; do
+  n=$(echo "$n" | tr -d ' ')
+  idx=$((n - 1))
+  mid=$(echo "$inbox" | jq -r ".value[$idx].id // empty")
+  subj=$(echo "$inbox" | jq -r ".value[$idx].subject // \"(no subject)\"")
+
+  if [ -z "$mid" ]; then
+    echo "Warning: Message #$n not found, skipping." >&2
+    continue
+  fi
+
+  msg_ids+=("$mid")
+  msg_subjects+=("$subj")
+done
+
+if [ ${#msg_ids[@]} -eq 0 ]; then
+  echo "No valid messages to archive." >&2
+  exit 1
+fi
+
+# Confirm
+if [ "${usage_confirm:-}" != "true" ]; then
+  echo "Archive ${#msg_ids[@]} message(s):"
+  for i in "${!msg_subjects[@]}"; do
+    echo "  - ${msg_subjects[$i]}"
+  done
+  echo ""
+  read -rp "Archive? [y/N] " answer
+  if [[ ! "$answer" =~ ^[yY] ]]; then
+    echo "Cancelled."
+    exit 0
+  fi
+fi
+
+# Move each message to Archive
+success=0
+for mid in "${msg_ids[@]}"; do
+  result=$(graph_post "/me/messages/$mid/move" "{\"destinationId\": \"$archive_id\"}")
+  if echo "$result" | jq -e '.id' >/dev/null 2>&1; then
+    ((success++))
+  else
+    echo "Warning: Failed to archive one message." >&2
+  fi
+done
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "{\"success\": true, \"archived\": $success}"
+else
+  echo "Archived $success message(s)."
+fi

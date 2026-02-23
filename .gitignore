@@ -1,0 +1,5 @@
+# mise local config
+.mise.local.toml
+
+# OS
+.DS_Store

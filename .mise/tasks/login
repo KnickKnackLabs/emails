@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#MISE description="Authenticate with Microsoft Graph (opens browser)"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+# We reuse msgraph's Playwright-based login flow, then copy tokens to our store.
+# This is the only step that needs Playwright — everything else is pure bash+curl.
+
+MSGRAPH_AUTH="$HOME/.wibey/skills/msgraph/scripts/auth.ts"
+
+if [ ! -f "$MSGRAPH_AUTH" ]; then
+  echo "Error: msgraph skill not found at $MSGRAPH_AUTH" >&2
+  echo "Install it via wibey first, then run: email login" >&2
+  exit 1
+fi
+
+echo "Opening browser for Microsoft sign-in..."
+bun "$MSGRAPH_AUTH" login
+
+# If login succeeded, msgraph stores tokens at ~/.wibey/msgraph_tokens.json
+# Copy them to our own store
+MSGRAPH_TOKENS="$HOME/.wibey/msgraph_tokens.json"
+if [ -f "$MSGRAPH_TOKENS" ]; then
+  _ensure_auth_dir
+  cp "$MSGRAPH_TOKENS" "$TOKEN_FILE"
+  chmod 600 "$TOKEN_FILE"
+  echo ""
+  echo "Tokens saved to $TOKEN_FILE"
+  echo "Run 'email inbox' to check your mail."
+else
+  echo "Login may have failed — no tokens found." >&2
+  exit 1
+fi

@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+#MISE description="Read a specific email message"
+#USAGE arg "<id>" help="Message number (from inbox) or full message ID"
+#USAGE flag "--json" help="Output raw JSON"
+#USAGE flag "--html" help="Show raw HTML body instead of text"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+msg_ref="${usage_id:?Usage: email read <number|message_id>}"
+
+# If it's a small number, resolve from inbox
+if [[ "$msg_ref" =~ ^[0-9]+$ ]] && [ "$msg_ref" -le 200 ]; then
+  idx=$((msg_ref - 1))
+  inbox=$(graph_get "/me/mailFolders/inbox/messages?\$top=$((idx + 1))&\$orderby=receivedDateTime%20desc&\$select=id")
+
+  if echo "$inbox" | jq -e '.error' >/dev/null 2>&1; then
+    echo "Error fetching inbox: $(echo "$inbox" | jq -r '.error.message // .error')" >&2
+    exit 1
+  fi
+
+  msg_id=$(echo "$inbox" | jq -r ".value[$idx].id // empty")
+  if [ -z "$msg_id" ]; then
+    echo "Message #$msg_ref not found. Run 'email inbox' to see available messages." >&2
+    exit 1
+  fi
+else
+  msg_id="$msg_ref"
+fi
+
+# Fetch the full message
+response=$(graph_get "/me/messages/$msg_id")
+
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$response" | jq '.'
+  exit 0
+fi
+
+# Human-readable output
+from_name=$(echo "$response" | jq -r '.from.emailAddress.name // empty')
+from_addr=$(echo "$response" | jq -r '.from.emailAddress.address // "unknown"')
+to_list=$(echo "$response" | jq -r '[.toRecipients[]? | .emailAddress | (.name // .address)] | join(", ")')
+cc_list=$(echo "$response" | jq -r '[.ccRecipients[]? | .emailAddress | (.name // .address)] | join(", ")')
+subject=$(echo "$response" | jq -r '.subject // "(no subject)"')
+date_raw=$(echo "$response" | jq -r '.receivedDateTime')
+is_read=$(echo "$response" | jq -r '.isRead')
+importance=$(echo "$response" | jq -r '.importance')
+has_attach=$(echo "$response" | jq -r '.hasAttachments')
+body_type=$(echo "$response" | jq -r '.body.contentType // "text"')
+
+date_fmt=$(format_date "$date_raw")
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Subject: $subject"
+echo "From:    ${from_name:+$from_name <}${from_addr}${from_name:+>}"
+echo "To:      $to_list"
+[ -n "$cc_list" ] && echo "Cc:      $cc_list"
+echo "Date:    $date_fmt"
+[ "$importance" = "high" ] && echo "Priority: HIGH"
+[ "$has_attach" = "true" ] && echo "Attachments: yes"
+[ "$is_read" = "false" ] && echo "Status:  UNREAD"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if [ "${usage_html:-}" = "true" ] || [ "$body_type" = "text" ]; then
+  echo "$response" | jq -r '.body.content // .bodyPreview // "(empty)"'
+else
+  # Strip HTML tags for readable output
+  echo "$response" | jq -r '.body.content // .bodyPreview // "(empty)"' | \
+    sed 's/<br[^>]*>/\n/gi' | \
+    sed 's/<\/p>/\n\n/gi' | \
+    sed 's/<\/div>/\n/gi' | \
+    sed 's/<\/li>/\n/gi' | \
+    sed 's/<li[^>]*>/  * /gi' | \
+    sed 's/<[^>]*>//g' | \
+    sed 's/&nbsp;/ /g; s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#39;/'"'"'/g' | \
+    sed '/^$/N;/^\n$/d'
+fi
+
+echo ""
+
+# Mark as read if it was unread
+if [ "$is_read" = "false" ]; then
+  graph_patch "/me/messages/$msg_id" '{"isRead": true}' >/dev/null 2>&1 || true
+fi

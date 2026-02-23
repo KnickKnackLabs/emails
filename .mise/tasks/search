@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#MISE description="Search emails"
+#USAGE arg "<query>" help="Search query"
+#USAGE flag "--limit <limit>" help="Max results" default="10"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+query="${usage_query:?Usage: email search \"query\"}"
+limit="${usage_limit:-10}"
+
+# URL-encode the query
+encoded_query=$(printf '%s' "$query" | jq -sRr @uri)
+
+endpoint="/me/messages?\$search=\"$encoded_query\"&\$top=${limit}&\$select=id,subject,from,receivedDateTime,isRead,bodyPreview,hasAttachments,importance"
+
+response=$(graph_get "$endpoint")
+
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$response" | jq '.value'
+  exit 0
+fi
+
+count=$(echo "$response" | jq '.value | length')
+
+if [ "$count" -eq 0 ]; then
+  echo "No results for \"$query\"."
+  exit 0
+fi
+
+echo "Search results for \"$query\" ($count):"
+echo ""
+
+echo "$response" | jq -r '
+  .value | to_entries[] |
+  .key as $idx |
+  .value |
+  [
+    (if .isRead then " " else "*" end),
+    ($idx + 1 | tostring),
+    (.from.emailAddress.name // .from.emailAddress.address // "unknown"),
+    (.subject // "(no subject)"),
+    .receivedDateTime
+  ] | @tsv
+' | while IFS=$'\t' read -r marker num from subject date_raw; do
+  date_fmt=$(format_date "$date_raw")
+  from_short=$(truncate "$from" 25)
+  subject_short=$(truncate "$subject" 50)
+  printf "%s %2s  %-25s  %-50s  %s\n" "$marker" "$num" "$from_short" "$subject_short" "$date_fmt"
+done

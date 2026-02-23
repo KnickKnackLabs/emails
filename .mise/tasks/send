@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#MISE description="Send an email"
+#USAGE flag "--to <to>" help="Recipient email address (required)"
+#USAGE flag "--subject <subject>" help="Email subject (required)"
+#USAGE flag "--body <body>" help="Email body text (required)"
+#USAGE flag "--cc <cc>" help="CC recipient(s), comma-separated"
+#USAGE flag "--html" help="Send body as HTML"
+#USAGE flag "--confirm" help="Skip confirmation prompt"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+to="${usage_to:?Usage: email send --to EMAIL --subject \"Subject\" --body \"Body\"}"
+subject="${usage_subject:?Missing --subject}"
+body="${usage_body:?Missing --body}"
+cc="${usage_cc:-}"
+
+# Build recipients JSON
+to_recipients=$(echo "$to" | tr ',' '\n' | jq -R '{"emailAddress": {"address": .}}' | jq -s '.')
+
+cc_recipients="[]"
+if [ -n "$cc" ]; then
+  cc_recipients=$(echo "$cc" | tr ',' '\n' | jq -R '{"emailAddress": {"address": .}}' | jq -s '.')
+fi
+
+content_type="text"
+[ "${usage_html:-}" = "true" ] && content_type="html"
+
+payload=$(jq -n \
+  --arg subject "$subject" \
+  --arg body "$body" \
+  --arg content_type "$content_type" \
+  --argjson to "$to_recipients" \
+  --argjson cc "$cc_recipients" \
+  '{
+    message: {
+      subject: $subject,
+      body: {
+        contentType: $content_type,
+        content: $body
+      },
+      toRecipients: $to,
+      ccRecipients: $cc
+    }
+  }')
+
+# Show draft and confirm
+if [ "${usage_confirm:-}" != "true" ]; then
+  echo "Draft email:"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "To:      $to"
+  [ -n "$cc" ] && echo "Cc:      $cc"
+  echo "Subject: $subject"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "$body"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  read -rp "Send? [y/N] " answer
+  if [[ ! "$answer" =~ ^[yY] ]]; then
+    echo "Cancelled."
+    exit 0
+  fi
+fi
+
+response=$(graph_post "/me/sendMail" "$payload")
+
+# sendMail returns 202 with empty body on success
+if [ -z "$response" ]; then
+  if [ "${usage_json:-}" = "true" ]; then
+    echo '{"success": true, "message": "Email sent"}'
+  else
+    echo "Sent."
+  fi
+else
+  if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+    echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+    exit 1
+  fi
+  echo "Sent."
+fi

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#MISE description="List mail folders with unread counts"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+response=$(graph_get "/me/mailFolders?\$select=displayName,unreadItemCount,totalItemCount&\$top=50")
+
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$response" | jq '.value'
+  exit 0
+fi
+
+echo "Mail Folders:"
+echo ""
+printf "  %-25s  %8s  %8s\n" "Folder" "Unread" "Total"
+printf "  %-25s  %8s  %8s\n" "-------------------------" "--------" "--------"
+
+echo "$response" | jq -r '.value[] | "\(.displayName)\t\(.unreadItemCount)\t\(.totalItemCount)"' | \
+while IFS=$'\t' read -r name unread total; do
+  marker=""
+  [ "$unread" -gt 0 ] && marker="*"
+  printf " %s%-25s  %8s  %8s\n" "$marker" "$name" "$unread" "$total"
+done

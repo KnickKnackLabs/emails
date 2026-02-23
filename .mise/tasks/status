@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#MISE description="Check authentication status"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+if [ ! -f "$TOKEN_FILE" ]; then
+  echo "Not authenticated. Run: email login"
+  exit 1
+fi
+
+tokens=$(_load_tokens) || exit 1
+
+expired="no"
+if _is_expired "$tokens"; then
+  expired="yes"
+fi
+
+expires_at=$(echo "$tokens" | jq -r '.expires_at // 0 | floor')
+expires_human=$(date -r "$expires_at" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "unknown")
+has_refresh=$(echo "$tokens" | jq -r 'if .refresh_token then "yes" else "no" end')
+timestamp=$(echo "$tokens" | jq -r '.timestamp // "unknown"')
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$tokens" | jq '{
+    authenticated: true,
+    token_expired: (.expires_at < (now | floor)),
+    expires_at: (.expires_at | todate),
+    has_refresh_token: (.refresh_token != null),
+    scope: (.scope // "" | split(" "))
+  }'
+else
+  echo "Authenticated:  yes"
+  echo "Token expired:  $expired"
+  echo "Expires at:     $expires_human"
+  echo "Refresh token:  $has_refresh"
+  echo "Last refreshed: $timestamp"
+
+  if [ "$expired" = "yes" ] && [ "$has_refresh" = "yes" ]; then
+    echo ""
+    echo "Token is expired but can be auto-refreshed."
+  elif [ "$expired" = "yes" ]; then
+    echo ""
+    echo "Token is expired. Run: email login"
+  fi
+fi

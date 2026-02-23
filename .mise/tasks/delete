@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#MISE description="Delete email message(s) (moves to Deleted Items)"
+#USAGE arg "<ids>" help="Message number(s) from inbox, comma-separated"
+#USAGE flag "--confirm" help="Skip confirmation prompt"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+ids_str="${usage_ids:?Usage: email delete <number>[,<number>...]}"
+
+# Parse comma-separated numbers
+IFS=',' read -ra nums <<< "$ids_str"
+
+# Resolve all message numbers
+max_num=0
+for n in "${nums[@]}"; do
+  n=$(echo "$n" | tr -d ' ')
+  [ "$n" -gt "$max_num" ] && max_num="$n"
+done
+
+inbox=$(graph_get "/me/mailFolders/inbox/messages?\$top=$max_num&\$orderby=receivedDateTime%20desc&\$select=id,subject,from")
+
+declare -a msg_ids
+declare -a msg_subjects
+
+for n in "${nums[@]}"; do
+  n=$(echo "$n" | tr -d ' ')
+  idx=$((n - 1))
+  mid=$(echo "$inbox" | jq -r ".value[$idx].id // empty")
+  subj=$(echo "$inbox" | jq -r ".value[$idx].subject // \"(no subject)\"")
+
+  if [ -z "$mid" ]; then
+    echo "Warning: Message #$n not found, skipping." >&2
+    continue
+  fi
+
+  msg_ids+=("$mid")
+  msg_subjects+=("$subj")
+done
+
+if [ ${#msg_ids[@]} -eq 0 ]; then
+  echo "No valid messages to delete." >&2
+  exit 1
+fi
+
+# Confirm
+if [ "${usage_confirm:-}" != "true" ]; then
+  echo "Delete ${#msg_ids[@]} message(s):"
+  for i in "${!msg_subjects[@]}"; do
+    echo "  - ${msg_subjects[$i]}"
+  done
+  echo ""
+  read -rp "Delete? [y/N] " answer
+  if [[ ! "$answer" =~ ^[yY] ]]; then
+    echo "Cancelled."
+    exit 0
+  fi
+fi
+
+# DELETE moves to Deleted Items by default
+success=0
+for mid in "${msg_ids[@]}"; do
+  result=$(graph_delete "/me/messages/$mid")
+  if [ -z "$result" ]; then
+    ((success++))
+  elif echo "$result" | jq -e '.error' >/dev/null 2>&1; then
+    echo "Warning: Failed to delete one message." >&2
+  else
+    ((success++))
+  fi
+done
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "{\"success\": true, \"deleted\": $success}"
+else
+  echo "Deleted $success message(s)."
+fi
