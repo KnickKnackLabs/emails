@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+#MISE description="Show email status overview"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+# ─── Auth check ──────────────────────────────────────────────────────────────
+
+if [ ! -f "$TOKEN_FILE" ]; then
+  echo "Not authenticated. Run: email login"
+  exit 1
+fi
+
+tokens=$(_load_tokens) || exit 1
+
+# Auto-refresh if needed
+if _is_expired "$tokens"; then
+  tokens=$(_refresh_token "$tokens") 2>/dev/null || {
+    echo "Token expired and refresh failed. Run: email login"
+    exit 1
+  }
+fi
+
+# ─── Fetch inbox stats ──────────────────────────────────────────────────────
+
+# Get user display name
+me=$(graph_get "/me?\$select=displayName" 2>/dev/null)
+name=$(echo "$me" | jq -r '.displayName // "there"')
+
+# Get folder stats
+folders=$(graph_get "/me/mailFolders?\$select=displayName,unreadItemCount,totalItemCount" 2>/dev/null)
+inbox_unread=$(echo "$folders" | jq -r '[.value[] | select(.displayName == "Inbox")] | .[0].unreadItemCount // 0')
+inbox_total=$(echo "$folders" | jq -r '[.value[] | select(.displayName == "Inbox")] | .[0].totalItemCount // 0')
+
+# Get 5 most recent messages
+recent=$(graph_get "/me/mailFolders/inbox/messages?\$top=5&\$orderby=receivedDateTime%20desc&\$select=subject,from,receivedDateTime,isRead,importance" 2>/dev/null)
+
+# ─── Display ─────────────────────────────────────────────────────────────────
+
+echo "Hey ${name}!"
+echo ""
+
+if [ "$inbox_unread" -gt 0 ]; then
+  echo "You have $inbox_unread unread message(s) in your inbox ($inbox_total total)."
+else
+  echo "Inbox is clean — no unread messages ($inbox_total total)."
+fi
+
+echo ""
+echo "Recent:"
+echo ""
+
+echo "$recent" | jq -r '
+  .value | to_entries[] |
+  .value |
+  [
+    (if .isRead then " " else "*" end),
+    (if .importance == "high" then "!" else " " end),
+    (.from.emailAddress.name // .from.emailAddress.address // "unknown"),
+    (.subject // "(no subject)"),
+    .receivedDateTime
+  ] | @tsv
+' | while IFS=$'\t' read -r marker imp from subject date_raw; do
+  date_fmt=$(format_date "$date_raw")
+  from_short=$(truncate "$from" 25)
+  subject_short=$(truncate "$subject" 45)
+  printf "%s%s %-25s  %-45s  %s\n" "$marker" "$imp" "$from_short" "$subject_short" "$date_fmt"
+done
+
+echo ""
+echo "Use 'email inbox' for full list, 'email read <n>' to read."
