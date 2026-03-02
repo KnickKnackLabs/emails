@@ -63,7 +63,15 @@ echo "To:      $to_list"
 [ -n "$cc_list" ] && echo "Cc:      $cc_list"
 echo "Date:    $date_fmt"
 [ "$importance" = "high" ] && echo "Priority: HIGH"
-[ "$has_attach" = "true" ] && echo "Attachments: yes"
+if [ "$has_attach" = "true" ]; then
+  attach_list=$(graph_get "/me/messages/$msg_id/attachments?\$select=name,size,isInline" | \
+    jq -r '.value[] | select(.isInline != true) | "\(.name) (\(if .size > 1048576 then "\(.size / 1048576 | floor)MB" elif .size > 1024 then "\(.size / 1024 | floor)KB" else "\(.size)B" end))"' | \
+    sed 's/^/    /')
+  if [ -n "$attach_list" ]; then
+    echo "Attachments:"
+    echo "$attach_list"
+  fi
+fi
 [ "$is_read" = "false" ] && echo "Status:  UNREAD"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

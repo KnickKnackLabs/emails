@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#MISE description="List attachments for a message"
+#USAGE arg "<id>" help="Message number (from inbox) or full message ID"
+#USAGE flag "--json" help="Output raw JSON"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+msg_ref="${usage_id:?Usage: email attachments <number|message_id>}"
+
+# Resolve number → message ID
+if [[ "$msg_ref" =~ ^[0-9]+$ ]] && [ "$msg_ref" -le 200 ]; then
+  idx=$((msg_ref - 1))
+  inbox=$(graph_get "/me/mailFolders/inbox/messages?\$top=$((idx + 1))&\$orderby=receivedDateTime%20desc&\$select=id")
+  if echo "$inbox" | jq -e '.error' >/dev/null 2>&1; then
+    echo "Error fetching inbox: $(echo "$inbox" | jq -r '.error.message // .error')" >&2
+    exit 1
+  fi
+  msg_id=$(echo "$inbox" | jq -r ".value[$idx].id // empty")
+  if [ -z "$msg_id" ]; then
+    echo "Message #$msg_ref not found. Run 'email inbox' to see available messages." >&2
+    exit 1
+  fi
+else
+  msg_id="$msg_ref"
+fi
+
+response=$(graph_get "/me/messages/$msg_id/attachments?\$select=id,name,contentType,size,isInline")
+
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$response" | jq '.'
+  exit 0
+fi
+
+count=$(echo "$response" | jq '.value | length')
+if [ "$count" -eq 0 ]; then
+  echo "No attachments."
+  exit 0
+fi
+
+echo "$response" | jq -r '
+  .value[] |
+  select(.isInline != true) |
+  [
+    .name,
+    (.size | if . > 1048576 then "\(. / 1048576 | floor)MB"
+             elif . > 1024 then "\(. / 1024 | floor)KB"
+             else "\(.)B" end),
+    .contentType,
+    .id
+  ] | @tsv
+' | awk -F'\t' '{
+  printf "  %-40s  %-8s  %-30s\n", $1, $2, $3
+  print "  id: " $4
+  print ""
+}'
