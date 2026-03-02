@@ -32,20 +32,20 @@ else
 fi
 
 # Fetch raw MIME via $value endpoint — handles all attachment types including
-# nested message/rfc822 (forwarded emails with their own attachments)
+# nested message/rfc822 (forwarded emails with their own attachments).
+# Write directly to a temp file with curl -o to preserve exact bytes (no shell variable mangling).
 token=$(graph_get_token)
-raw_mime=$(curl -sf --max-time 30 \
+tmp_mime=$(mktemp)
+trap 'rm -f "$tmp_mime"' EXIT
+curl -sf --max-time 120 \
   -H "Authorization: Bearer $token" \
-  "https://graph.microsoft.com/v1.0/me/messages/$msg_id/\$value") || {
+  -o "$tmp_mime" \
+  "https://graph.microsoft.com/v1.0/me/messages/$msg_id/\$value" || {
   echo "Error: failed to fetch message content" >&2
   exit 1
 }
 
 # Use Python's email module to walk the full MIME tree and extract attachments.
-# Write raw MIME to a temp file then pass as arg (heredoc can't share stdin with a pipe).
-tmp_mime=$(mktemp)
-trap 'rm -f "$tmp_mime"' EXIT
-printf '%s' "$raw_mime" > "$tmp_mime"
 
 python3 - "$out_dir" "$filter_name" "$list_only" "$tmp_mime" <<'PYEOF'
 import sys, email, os, pathlib

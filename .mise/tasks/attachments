@@ -26,7 +26,7 @@ else
   msg_id="$msg_ref"
 fi
 
-response=$(graph_get "/me/messages/$msg_id/attachments?\$select=id,name,contentType,size,isInline")
+response=$(graph_get "/me/messages/$msg_id/attachments?\$select=name,contentType,size,isInline")
 
 if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
   echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
@@ -52,11 +52,8 @@ echo "$response" | jq -r '
     (.size | if . > 1048576 then "\(. / 1048576 | floor)MB"
              elif . > 1024 then "\(. / 1024 | floor)KB"
              else "\(.)B" end),
-    .contentType,
-    .id
+    .contentType
   ] | @tsv
 ' | awk -F'\t' '{
-  printf "  %-40s  %-8s  %-30s\n", $1, $2, $3
-  print "  id: " $4
-  print ""
+  printf "  %-40s  %-8s  %s\n", $1, $2, $3
 }'

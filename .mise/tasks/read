@@ -70,6 +70,8 @@ if [ "$has_attach" = "true" ]; then
   if [ -n "$attach_list" ]; then
     echo "Attachments:"
     echo "$attach_list"
+  else
+    echo "Attachments: (embedded images only)"
   fi
 fi
 [ "$is_read" = "false" ] && echo "Status:  UNREAD"
