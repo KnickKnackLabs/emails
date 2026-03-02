@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+#MISE description="Download attachment(s) from a message"
+#USAGE arg "<id>" help="Message number (from inbox) or full message ID"
+#USAGE flag "--attachment <name>" help="Attachment name to download (downloads all if omitted)"
+#USAGE flag "--dir <path>" help="Directory to save files (default: current directory)"
+#USAGE flag "--json" help="Output raw JSON of attachment metadata"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/graph.sh"
+
+msg_ref="${usage_id:?Usage: email download <number|message_id>}"
+out_dir="${usage_dir:-.}"
+filter_name="${usage_attachment:-}"
+
+# Resolve number → message ID
+if [[ "$msg_ref" =~ ^[0-9]+$ ]] && [ "$msg_ref" -le 200 ]; then
+  idx=$((msg_ref - 1))
+  inbox=$(graph_get "/me/mailFolders/inbox/messages?\$top=$((idx + 1))&\$orderby=receivedDateTime%20desc&\$select=id")
+  if echo "$inbox" | jq -e '.error' >/dev/null 2>&1; then
+    echo "Error fetching inbox: $(echo "$inbox" | jq -r '.error.message // .error')" >&2
+    exit 1
+  fi
+  msg_id=$(echo "$inbox" | jq -r ".value[$idx].id // empty")
+  if [ -z "$msg_id" ]; then
+    echo "Message #$msg_ref not found. Run 'email inbox' to see available messages." >&2
+    exit 1
+  fi
+else
+  msg_id="$msg_ref"
+fi
+
+response=$(graph_get "/me/messages/$msg_id/attachments")
+
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$response" | jq '[.value[] | {id, name, contentType, size}]'
+  exit 0
+fi
+
+count=$(echo "$response" | jq '.value | length')
+if [ "$count" -eq 0 ]; then
+  echo "No attachments on this message."
+  exit 0
+fi
+
+mkdir -p "$out_dir"
+downloaded=0
+
+while IFS=$'\t' read -r attach_id attach_name content_bytes is_inline; do
+  # Skip inline attachments (embedded images etc)
+  [ "$is_inline" = "true" ] && continue
+
+  # Filter by name if --attachment was given
+  if [ -n "$filter_name" ] && [ "$attach_name" != "$filter_name" ]; then
+    continue
+  fi
+
+  out_path="$out_dir/$attach_name"
+
+  # Decode base64 content to file
+  echo "$content_bytes" | base64 --decode > "$out_path"
+
+  size=$(wc -c < "$out_path" | tr -d ' ')
+  if [ "$size" -gt 1048576 ]; then
+    size_str="$((size / 1048576))MB"
+  elif [ "$size" -gt 1024 ]; then
+    size_str="$((size / 1024))KB"
+  else
+    size_str="${size}B"
+  fi
+
+  echo "  saved: $out_path ($size_str)"
+  downloaded=$((downloaded + 1))
+done < <(echo "$response" | jq -r '.value[] | [.id, .name, (.contentBytes // ""), (.isInline // false | tostring)] | @tsv')
+
+if [ "$downloaded" -eq 0 ]; then
+  if [ -n "$filter_name" ]; then
+    echo "No attachment named '$filter_name' found." >&2
+    echo "Run 'email attachments $msg_ref' to see available attachments." >&2
+    exit 1
+  else
+    echo "No downloadable attachments (only inline images)."
+  fi
+fi
