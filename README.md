@@ -1,27 +1,32 @@
+<div align="center">
+
 # email
 
-A mise-based CLI for Outlook/Microsoft 365 email. Pure bash + curl + jq — no Node, no Python, no SDK.
+**CLI for Outlook / Microsoft 365 email.**
+
+Pure bash + curl + jq — no Node, no Python, no SDK. Read, send, search, and organize mail from the terminal.
+
+</div>
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Clone
+# Clone and install
 git clone https://gecgithub01.walmart.com/vn5a6e7/email.git
-cd email
+cd email && mise trust && mise install
 
-# 2. Trust and install dependencies
-mise trust && mise install
-
-# 3. Login (opens browser for Microsoft OAuth)
+# Login (opens browser for Microsoft OAuth)
 mise run login
 
-# 4. Check your inbox
+# Check your inbox
 mise run inbox
 ```
 
-### Using with shiv (optional)
+### Using with shiv
 
-If you have [shiv](https://github.com/KnickKnackLabs/shiv) installed, you can register `email` as a global command:
+If you have [shiv](https://github.com/KnickKnackLabs/shiv) installed, register as a global command:
 
 ```bash
 shiv install email /path/to/email
@@ -32,140 +37,104 @@ email read 1
 email send --to someone@walmart.com --subject "Hello" --body "Hi there"
 ```
 
-Without shiv, use `mise run <command>` from inside the repo directory.
-
 ## Commands
 
-### Overview
-
 | Command | Description |
-|---------|-------------|
+| --- | --- |
 | `email welcome` | Quick inbox overview — unread count + 5 most recent messages |
-| `email inbox` | Full inbox listing |
-| `email read <n>` | Read a message by its inbox number |
-| `email send` | Compose and send an email |
-| `email reply <n>` | Reply to a message |
+| `email inbox` | Full inbox listing (with --limit, --unread) |
+| `email read <n>` | Read a message by inbox number (with --html, --json) |
+| `email send` | Compose and send (with --to, --subject, --body, --cc, --confirm) |
+| `email reply <n>` | Reply to a message (with --all for reply-all) |
 | `email search <query>` | Search across all mail |
 | `email archive <n>` | Move message(s) to Archive |
 | `email delete <n>` | Move message(s) to Deleted Items |
+| `email attachments` | List attachments on a message |
+| `email download` | Download attachments |
 | `email folders` | List mail folders with unread counts |
 | `email status` | Check auth status |
 | `email login` | Authenticate (opens browser) |
 | `email logout` | Clear stored tokens |
 
-### Reading mail
+## Examples
+
+**Reading mail:**
 
 ```bash
-# Quick overview (great for session start)
-email welcome
-
-# List inbox (default: 15 messages)
-email inbox
-
-# Show more messages
-email inbox --limit 50
-
-# Only unread
-email inbox --unread
-
-# Read a specific message (by inbox number)
-email read 1
-
-# Read as raw HTML
-email read 1 --html
+email welcome                   # quick overview (great for session start)
+email inbox --limit 50          # show more messages
+email inbox --unread            # only unread
+email read 1                    # read by inbox number
+email read 1 --html             # raw HTML view
 ```
 
-### Sending mail
+**Sending mail:**
 
 ```bash
-# Send (will prompt for confirmation)
-email send --to user@walmart.com --subject "Subject" --body "Message body"
-
-# Send with CC
-email send --to user@walmart.com --cc other@walmart.com --subject "Subject" --body "Body"
-
-# Skip confirmation (for scripts/agents)
-email send --to user@walmart.com --subject "Subject" --body "Body" --confirm
-
-# Reply to message #3
+email send --to user@walmart.com --subject "Subject" --body "Message"
+email send --to user@walmart.com --cc other@walmart.com --subject "FYI" --body "..."
+email send --to user@walmart.com --subject "Auto" --body "..." --confirm  # skip prompt
 email reply 3 --body "Thanks!"
-
-# Reply all
-email reply 3 --body "Thanks!" --all
+email reply 3 --body "Thanks!" --all    # reply all
 ```
 
-### Organizing mail
+**Organizing:**
 
 ```bash
-# Delete a single message
-email delete 5
-
-# Bulk delete (comma-separated)
-email delete 1,2,3 --confirm
-
-# Archive
 email archive 5
-email archive 1,2,3 --confirm
-```
-
-### Search
-
-```bash
+email delete 1,2,3 --confirm    # bulk delete
 email search "from:brian subject:release"
-email search "okwai" --limit 20
 ```
 
-### JSON output
-
-Every command supports `--json` for machine-readable output:
+**JSON output** — every command supports `--json` for machine-readable output:
 
 ```bash
-email inbox --json
-email read 1 --json
-email folders --json
-email status --json
+email inbox --json | jq '.[0].subject'
 ```
 
-## How It Works
-
-### Authentication
+## Authentication
 
 Login uses Microsoft's OAuth2 PKCE flow via a browser redirect. Tokens are stored at `~/.config/email/tokens.json` and auto-refresh on each command.
 
-**Known limitation:** The current app registration uses a Single-Page Application (SPA) client type, which Microsoft limits to 24-hour refresh token lifetime. You'll need to run `email login` once per day. See [issue #2](https://gecgithub01.walmart.com/vn5a6e7/email/issues/2) for the fix plan.
-
-### Architecture
-
-```
-.mise/tasks/       # Each command is a standalone bash script
-  inbox            # Uses #USAGE specs for argument parsing
-  read
-  send
-  ...
-lib/
-  graph.sh         # Shared library: token management, Graph API calls, output helpers
-```
-
-All Microsoft Graph API calls go through `lib/graph.sh`, which handles:
-- Token loading, expiry detection, and refresh
-- HTTP request construction (`graph_get`, `graph_post`, `graph_patch`, `graph_delete`)
-- Date formatting and text truncation helpers
-
-### Requirements
-
-- [mise](https://mise.jdx.dev/) — task runner and tool manager
-- `curl` — HTTP requests
-- `jq` — JSON processing
-- A browser — for the initial OAuth login
-
-All of these are available on standard Walmart dev machines.
+**Known limitation:** The current app registration uses an SPA client type, which Microsoft limits to 24-hour refresh token lifetime. You'll need to run `email login` once per day.
 
 ## For Agents
 
 If you're an AI agent setting up email for your human:
 
-1. Clone the repo to your workspace or a standard location
-2. Run `mise trust && mise install`
-3. Run `mise run login` — this opens a browser. Your human needs to complete the Microsoft sign-in. Tell them: "Please sign in with your Walmart credentials in the browser window that just opened."
-4. Once authenticated, verify with `mise run welcome`
-5. Tokens expire every 24 hours. When you see "Token refresh failed", ask your human to run `email login` again.
+- Clone the repo and run `mise trust && mise install`
+- Run `mise run login` — this opens a browser. Tell your human: "Please sign in with your Walmart credentials."
+- Verify with `mise run welcome`
+- Tokens expire every 24 hours. When refresh fails, ask your human to run `email login` again.
+
+## Structure
+
+```text
+email/
+├── .mise/tasks/
+│   ├── inbox        # List messages
+│   ├── read         # Read a message
+│   ├── send         # Compose and send
+│   ├── reply        # Reply / reply-all
+│   ├── search       # Full-text search
+│   ├── archive      # Move to Archive
+│   ├── delete       # Move to Deleted Items
+│   ├── attachments  # List attachments
+│   ├── download     # Download attachments
+│   ├── folders      # List mail folders
+│   ├── welcome      # Inbox overview
+│   ├── status       # Auth status check
+│   ├── login        # OAuth flow
+│   └── logout       # Clear tokens
+├── lib/
+│   └── graph.sh     # MS Graph API client (token mgmt, HTTP helpers)
+├── mise.toml
+└── README.tsx       # This file (generates README.md)
+```
+
+## Requirements
+
+- [mise](https://mise.jdx.dev/) — task runner and tool manager
+- `curl` — HTTP requests
+- `jq` — JSON processing
+- A browser — for the initial OAuth login
