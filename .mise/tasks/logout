@@ -2,8 +2,7 @@
 #MISE description="Clear stored authentication tokens"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/graph.sh"
+source "$MISE_CONFIG_ROOT/lib/graph.sh"
 
 if [ -f "$TOKEN_FILE" ]; then
   rm "$TOKEN_FILE"

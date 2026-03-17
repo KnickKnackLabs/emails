@@ -6,8 +6,7 @@
 #USAGE flag "--list" help="List available attachments (including nested) without downloading"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/graph.sh"
+source "$MISE_CONFIG_ROOT/lib/graph.sh"
 
 msg_ref="${usage_id:?Usage: email download <number|message_id>}"
 out_dir="${usage_dir:-.}"

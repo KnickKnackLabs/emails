@@ -1,5 +1,7 @@
 [tools]
 jq = "latest"
+gum = "latest"
+bats = "1.13.0"
 
 [env]
 EMAIL_AUTH_DIR = "{{env.HOME}}/.config/email"

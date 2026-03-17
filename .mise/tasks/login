@@ -2,8 +2,7 @@
 #MISE description="Authenticate with Microsoft Graph (opens browser)"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/graph.sh"
+source "$MISE_CONFIG_ROOT/lib/graph.sh"
 
 # We reuse msgraph's Playwright-based login flow, then copy tokens to our store.
 # This is the only step that needs Playwright — everything else is pure bash+curl.

@@ -9,8 +9,7 @@
 #USAGE flag "--json" help="Output raw JSON"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/graph.sh"
+source "$MISE_CONFIG_ROOT/lib/graph.sh"
 
 to="${usage_to:?Usage: email send --to EMAIL --subject \"Subject\" --body \"Body\"}"
 subject="${usage_subject:?Missing --subject}"

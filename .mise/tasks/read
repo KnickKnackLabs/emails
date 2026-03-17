@@ -5,8 +5,7 @@
 #USAGE flag "--html" help="Show raw HTML body instead of text"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/graph.sh"
+source "$MISE_CONFIG_ROOT/lib/graph.sh"
 
 msg_ref="${usage_id:?Usage: email read <number|message_id>}"
 
