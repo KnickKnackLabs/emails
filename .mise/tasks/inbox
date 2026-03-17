@@ -46,14 +46,24 @@ fi
 unread_count=$(echo "$response" | jq '[.value[] | select(.isRead == false)] | length')
 
 if [ "${usage_unread:-}" = "true" ]; then
-  echo "Unread messages ($unread_count):"
+  gum style --bold "  Unread messages ($unread_count)"
 else
-  echo "Inbox ($count messages, $unread_count unread):"
+  gum style --bold "  Inbox ($count messages, $unread_count unread)"
 fi
 echo ""
 
-# Print each message using a single jq call for performance
-echo "$response" | jq -r '
+# Build table rows with pipe separator
+SEP='|'
+rows=""
+
+while IFS=$'\t' read -r marker imp num from subject date_raw attach; do
+  date_fmt=$(format_date "$date_raw")
+  from_short=$(truncate "$from" 25)
+  subject_short=$(truncate "$subject" 50)
+  flag="${marker}${imp}"
+  [ -n "$attach" ] && subject_short="${subject_short} [+]"
+  rows+="${flag}${SEP}${num}${SEP}${from_short}${SEP}${subject_short}${SEP}${date_fmt}"$'\n'
+done < <(echo "$response" | jq -r '
   .value | to_entries[] |
   .key as $idx |
   .value |
@@ -66,12 +76,12 @@ echo "$response" | jq -r '
     .receivedDateTime,
     (if .hasAttachments then " [+]" else "" end)
   ] | @tsv
-' | while IFS=$'\t' read -r marker imp num from subject date_raw attach; do
-  date_fmt=$(format_date "$date_raw")
-  from_short=$(truncate "$from" 25)
-  subject_short=$(truncate "$subject" 50)
-  printf "%s%s %2s  %-25s  %-50s  %s%s\n" "$marker" "$imp" "$num" "$from_short" "$subject_short" "$date_fmt" "$attach"
-done
+')
+
+# Remove trailing newline
+rows="${rows%$'\n'}"
+
+printf '%s' "$rows" | gum table -s "$SEP" -c " ,#,FROM,SUBJECT,DATE" -p --border normal
 
 echo ""
-echo "Use 'email read <number>' to read a message."
+gum style --faint "  Use 'email read <number>' to read a message."
