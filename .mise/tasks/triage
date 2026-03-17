@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#MISE description="Classify inbox into actionable, noise, bulk, and other"
+#USAGE flag "--limit <limit>" help="Number of messages to scan" default="30"
+#USAGE flag "--json" help="Output raw JSON classification"
+#USAGE flag "--quiet" help="Print only noise message numbers (for piping to delete)"
+set -eo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/graph.sh"
+source "$MISE_CONFIG_ROOT/lib/triage.sh"
+
+limit="${usage_limit:-30}"
+
+# Fetch inbox
+endpoint="/me/mailFolders/inbox/messages?\$top=${limit}&\$orderby=receivedDateTime%20desc"
+endpoint+='&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,hasAttachments,importance'
+
+response=$(graph_get "$endpoint")
+
+# Check for errors
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+count=$(echo "$response" | jq '.value | length')
+if [ "$count" -eq 0 ]; then
+  echo "Inbox is empty."
+  exit 0
+fi
+
+# Classify
+classified=$(classify_inbox "$response")
+
+# JSON output
+if [ "${usage_json:-}" = "true" ]; then
+  echo "$classified" | jq '.'
+  exit 0
+fi
+
+# Quiet mode: just print noise IDs for piping
+if [ "${usage_quiet:-}" = "true" ]; then
+  echo "$classified" | jq -r '[.noise[].num] | map(tostring) | join(",")'
+  exit 0
+fi
+
+# Human-readable output
+SEP='|'
+
+# Helper: print a category section
+print_category() {
+  local label="$1" color="$2" key="$3"
+  local items
+  items=$(echo "$classified" | jq -r ".${key}")
+  local cat_count
+  cat_count=$(echo "$items" | jq 'length')
+
+  [ "$cat_count" -eq 0 ] && return
+
+  echo ""
+  gum style --bold --foreground "$color" "  ${label} (${cat_count})"
+  echo ""
+
+  local rows=""
+  while IFS=$'\t' read -r num from subject; do
+    from_short=$(truncate "$from" 25)
+    subject_short=$(truncate "$subject" 50)
+    rows+="${num}${SEP}${from_short}${SEP}${subject_short}"$'\n'
+  done < <(echo "$items" | jq -r '.[] | [(.num | tostring), .from, .subject] | @tsv')
+
+  rows="${rows%$'\n'}"
+  printf '%s' "$rows" | gum table -s "$SEP" -c "#,FROM,SUBJECT" -p --border normal
+}
+
+gum style --bold "  Email Triage ($count messages)"
+
+print_category "Actionable" "2" "actionable"
+print_category "Other" "4" "other"
+print_category "Noise" "8" "noise"
+print_category "Bulk" "3" "bulk"
+
+# Show cleanup command if there's noise or bulk to delete
+noise_nums=$(echo "$classified" | jq -r '[.noise[].num] | map(tostring) | join(",")')
+bulk_nums=$(echo "$classified" | jq -r '[.bulk[].num] | map(tostring) | join(",")')
+
+all_deletable=""
+[ -n "$noise_nums" ] && all_deletable="$noise_nums"
+if [ -n "$bulk_nums" ]; then
+  [ -n "$all_deletable" ] && all_deletable="${all_deletable},${bulk_nums}"
+  [ -z "$all_deletable" ] && all_deletable="$bulk_nums"
+fi
+
+if [ -n "$noise_nums" ]; then
+  echo ""
+  gum style --faint "  Clean noise:       email clean"
+  gum style --faint "  Clean noise+bulk:  email clean --all"
+fi
