@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+#MISE description="Delete noise emails (merges, pushes, bots, review pings)"
+#USAGE flag "--limit <limit>" help="Number of messages to scan" default="30"
+#USAGE flag "--all" help="Also delete bulk emails (newsletters)"
+#USAGE flag "--dry-run" help="Show what would be deleted without deleting"
+#USAGE flag "--confirm" help="Skip confirmation prompt"
+#USAGE flag "--json" help="Output raw JSON result"
+set -eo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/graph.sh"
+source "$MISE_CONFIG_ROOT/lib/triage.sh"
+
+limit="${usage_limit:-30}"
+
+# Fetch inbox
+endpoint="/me/mailFolders/inbox/messages?\$top=${limit}&\$orderby=receivedDateTime%20desc"
+endpoint+='&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,hasAttachments,importance'
+
+response=$(graph_get "$endpoint")
+
+# Check for errors
+if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+  echo "Error: $(echo "$response" | jq -r '.error.message // .error')" >&2
+  exit 1
+fi
+
+count=$(echo "$response" | jq '.value | length')
+if [ "$count" -eq 0 ]; then
+  echo "Inbox is empty — nothing to clean."
+  exit 0
+fi
+
+# Classify
+classified=$(classify_inbox "$response")
+
+# Collect deletable messages
+if [ "${usage_all:-}" = "true" ]; then
+  deletable=$(echo "$classified" | jq '[.noise[], .bulk[]]')
+  label="noise + bulk"
+else
+  deletable=$(echo "$classified" | jq '.noise')
+  label="noise"
+fi
+
+del_count=$(echo "$deletable" | jq 'length')
+
+if [ "$del_count" -eq 0 ]; then
+  echo "No $label emails to clean."
+  exit 0
+fi
+
+# Collect IDs and nums
+msg_ids=$(echo "$deletable" | jq -r '.[].id')
+msg_nums=$(echo "$deletable" | jq -r '[.[].num] | map(tostring) | join(",")')
+
+# JSON output
+if [ "${usage_json:-}" = "true" ]; then
+  if [ "${usage_dry_run:-}" = "true" ]; then
+    echo "$deletable" | jq --arg mode "dry-run" '{ mode: $mode, count: length, messages: . }'
+  else
+    echo "$deletable" | jq --arg mode "delete" '{ mode: $mode, count: length, messages: . }'
+  fi
+  # Don't exit yet if not dry-run — still need to delete below
+  [ "${usage_dry_run:-}" = "true" ] && exit 0
+fi
+
+# Dry-run mode
+if [ "${usage_dry_run:-}" = "true" ]; then
+  gum style --bold "  Dry run: would delete $del_count $label email(s)"
+  echo ""
+
+  SEP='|'
+  rows=""
+  while IFS=$'\t' read -r num from subject; do
+    from_short=$(truncate "$from" 25)
+    subject_short=$(truncate "$subject" 50)
+    rows+="${num}${SEP}${from_short}${SEP}${subject_short}"$'\n'
+  done < <(echo "$deletable" | jq -r '.[] | [(.num | tostring), .from, .subject] | @tsv')
+  rows="${rows%$'\n'}"
+
+  printf '%s' "$rows" | gum table -s "$SEP" -c "#,FROM,SUBJECT" -p --border normal
+  echo ""
+  gum style --faint "  Run without --dry-run to delete these."
+  exit 0
+fi
+
+# Confirm
+if [ "${usage_confirm:-}" != "true" ]; then
+  echo "Delete $del_count $label email(s)?"
+  echo ""
+  echo "$deletable" | jq -r '.[] | "  \(.num). \(.from) — \(.subject)"' | head -10
+  [ "$del_count" -gt 10 ] && echo "  ... and $((del_count - 10)) more"
+  echo ""
+  read -rp "Delete? [y/N] " answer
+  if [[ ! "$answer" =~ ^[yY] ]]; then
+    echo "Cancelled."
+    exit 0
+  fi
+fi
+
+# Delete
+success=0
+while IFS= read -r mid; do
+  result=$(graph_delete "/me/messages/$mid")
+  if [ -z "$result" ]; then
+    ((success++))
+  elif echo "$result" | jq -e '.error' >/dev/null 2>&1; then
+    echo "Warning: Failed to delete one message." >&2
+  else
+    ((success++))
+  fi
+done <<< "$msg_ids"
+
+if [ "${usage_json:-}" = "true" ]; then
+  echo "{\"deleted\": $success, \"total\": $del_count}"
+else
+  gum style --bold "  Cleaned $success $label email(s)."
+fi
