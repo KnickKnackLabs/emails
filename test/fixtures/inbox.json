@@ -1,0 +1,229 @@
+{
+  "value": [
+    {
+      "id": "msg-001",
+      "subject": "Re: [Torbit/okwai] feat: generate README from JSX with dynamic crate and task data (PR #233)",
+      "bodyPreview": "@b0m00mi commented on this pull request.\r\n\r\nIn README.md:\r\n\r\n> some of these shields just seem noisy to me..",
+      "receivedDateTime": "2026-03-17T05:28:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-002",
+      "subject": "Re: [Torbit/okwai] feat: generate README from JSX with dynamic crate and task data (PR #233)",
+      "bodyPreview": "@b0m00mi approved this pull request.\r\n\r\n—\r\nReply to this email directly",
+      "receivedDateTime": "2026-03-17T04:27:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-003",
+      "subject": "Re: [Torbit/okwai] chore: add prettier and taplo as mise deps (PR #227)",
+      "bodyPreview": "Merged #227 into main.\r\n\r\n—\r\nReply to this email directly",
+      "receivedDateTime": "2026-03-16T23:01:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-004",
+      "subject": "Re: [Torbit/okwai] docs: restructure README and user guide (PR #232)",
+      "bodyPreview": "Merged #232 into main.\r\n\r\n—\r\nReply to this email directly",
+      "receivedDateTime": "2026-03-16T23:00:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-005",
+      "subject": "Re: [Torbit/okwai] feat(dev): CDB testdata paths (PR #231)",
+      "bodyPreview": "@b0m00mi pushed 1 commit.\r\n\r\n  * 8eb9995 fix: use relative path to CDBs for local dev\r\n—\r\nView it on GitHub Enterprise",
+      "receivedDateTime": "2026-03-16T22:03:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-006",
+      "subject": "Re: [Torbit/okwai] feat(dev): CDB testdata paths (PR #231)",
+      "bodyPreview": "@b0m00mi requested your review on: #231 feat(dev): CDB testdata paths.\r\n\r\n—\r\nReply to this email directly",
+      "receivedDateTime": "2026-03-16T22:20:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-007",
+      "subject": "Re: [Torbit/okwai] feat: generate README from JSX (PR #233)",
+      "bodyPreview": "1 similar comment\n\nAnalysis Results\nSonarQube Analysis\n\nQuality Gate: Passed\n0 Bugs\n0 Vulnerabilities",
+      "receivedDateTime": "2026-03-16T22:09:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "sonarqubeprchecksnew[bot]",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-008",
+      "subject": "Re: [Torbit/okwai] feat: generate README from JSX (PR #233)",
+      "bodyPreview": "PR Description updated to latest commit\n\n⏱️ Estimated effort to review",
+      "receivedDateTime": "2026-03-16T21:46:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "qodo-merge[bot]",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-009",
+      "subject": "[ACTION REQUIRED] Auto Onboard repositories to Team Productivity",
+      "bodyPreview": "Action Required: Complete your team's repository onboarding by March 31.",
+      "receivedDateTime": "2026-03-17T19:39:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Team Productivity",
+          "address": "teamproductivity@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-010",
+      "subject": "Building impact and careers in FY27",
+      "bodyPreview": "Global Tech newsletter — building impact and careers in FY27.",
+      "receivedDateTime": "2026-03-17T01:31:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Global Tech",
+          "address": "globaltech@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-011",
+      "subject": "Growth in focus. Security in action.",
+      "bodyPreview": "Global Tech 5 and 10 — growth in focus, security in action.",
+      "receivedDateTime": "2026-03-17T00:10:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Global Tech 5 and 10",
+          "address": "globaltech@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-012",
+      "subject": "Re: [Torbit/okwai] feat(monitoring): metrics quality (PR #230)",
+      "bodyPreview": "@b0m00mi requested changes on this pull request.\r\n\r\nIn crates/okwai/src/metrics.rs:\r\n\r\n> This histogram bucket",
+      "receivedDateTime": "2026-03-16T21:44:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-013",
+      "subject": "Lunch plans?",
+      "bodyPreview": "Hey Or, want to grab lunch tomorrow? There's a new place downtown.",
+      "receivedDateTime": "2026-03-16T20:15:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": true,
+      "from": {
+        "emailAddress": {
+          "name": "Sarah Chen",
+          "address": "s0c00xy@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-014",
+      "subject": "Re: [Torbit/okwai] fix(monitoring): podman compat (PR #228)",
+      "bodyPreview": "@b0m00mi pushed 4 commits.\r\n\r\n  * 3ccbfaf chore(dev): add TB_* CDB paths\r\n  * 9f31f29 test(smoke): add CDB-backed scenarios",
+      "receivedDateTime": "2026-03-16T21:15:00Z",
+      "hasAttachments": false,
+      "importance": "normal",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Brian Merrell - b0m00mi",
+          "address": "noreply@walmart.com"
+        }
+      }
+    },
+    {
+      "id": "msg-015",
+      "subject": "Q3 Planning Doc Review",
+      "bodyPreview": "Hi team, please review the attached Q3 planning document before Friday's meeting.",
+      "receivedDateTime": "2026-03-16T18:30:00Z",
+      "hasAttachments": true,
+      "importance": "high",
+      "isRead": false,
+      "from": {
+        "emailAddress": {
+          "name": "Manager Person",
+          "address": "m0mgr01@walmart.com"
+        }
+      }
+    }
+  ]
+}
