@@ -4,6 +4,7 @@
 #USAGE arg "<subject>" help="Email subject"
 #USAGE arg "[body]" help="Message body (optional, or use -b flag or stdin)"
 #USAGE flag "-b --body <body>" help="Message body (alternative to positional arg)"
+#USAGE flag "-c --cc <cc>" help="CC recipient (repeatable)" var=#true
 #USAGE flag "-a --attach <attach>" help="File path to attach (repeatable)" var=#true
 #USAGE flag "--allow-short" help="Allow short message bodies (under 50 chars)"
 #USAGE flag "--html" help="Send body as HTML (Content-Type: text/html)"
@@ -27,6 +28,11 @@ if [ -z "$TO" ] || [ -z "$SUBJECT" ]; then
   echo "HTML email:"
   echo "  emails send admin@ricon.family 'Subject' --html -b /path/to/file.html"
   echo "  cat body.html | emails send admin@ricon.family 'Subject' --html"
+  echo ""
+  echo "Attachments:"
+  echo "CC:"
+  echo "  emails send admin@ricon.family 'Subject' 'body' -c other@ricon.family"
+  echo "  emails send admin@ricon.family 'Subject' 'body' -c one@x.com -c two@x.com"
   echo ""
   echo "Attachments:"
   echo "  emails send admin@ricon.family 'Subject' 'body' -a /path/to/file.pdf"
@@ -92,11 +98,19 @@ if [ -n "${usage_attach:-}" ]; then
   done < <(echo "$usage_attach" | xargs -n1 printf '%s\n')
 fi
 
+# Build CC header
+CC_HEADER=""
+if [ -n "${usage_cc:-}" ]; then
+  CC_ADDRS=$(echo "$usage_cc" | xargs -n1 printf '%s\n' | paste -sd ',' - | sed 's/,/, /g')
+  CC_HEADER="Cc: $CC_ADDRS"
+fi
+
 # Send with GPG signing using MML template.
 himalaya template send -a "$AGENT" << EOF
 From: $FROM
 To: $TO
-Subject: $SUBJECT
+${CC_HEADER:+$CC_HEADER
+}Subject: $SUBJECT
 
 <#multipart type=mixed sign=pgpmime>
 <#part type=$CONTENT_TYPE>
@@ -106,4 +120,8 @@ $ATTACH_MML
 <#/multipart>
 EOF
 
-echo "Sent to $TO"
+if [ -n "${CC_HEADER:-}" ]; then
+  echo "Sent to $TO (cc: $CC_ADDRS)"
+else
+  echo "Sent to $TO"
+fi
