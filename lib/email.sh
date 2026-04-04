@@ -16,7 +16,7 @@ else
   return 1 2>/dev/null || exit 1
 fi
 
-CONFIG_FILE="${HOME}/.config/himalaya/config.toml"
+CONFIG_FILE="${HIMALAYA_CONFIG:-${HOME}/.config/himalaya/config.toml}"
 if [ ! -f "$CONFIG_FILE" ] || ! grep -q "accounts.$AGENT" "$CONFIG_FILE" 2>/dev/null; then
   echo "Email not configured for $AGENT. Run: emails setup $AGENT"
   return 1 2>/dev/null || exit 1
