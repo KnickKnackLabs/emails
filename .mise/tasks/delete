@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#MISE description="Delete email message(s) (moves to Trash)"
+#USAGE arg "[ids...]" var=#true help="Message ID(s) to delete"
+#USAGE flag "--all" help="Delete all messages in folder"
+#USAGE flag "--permanent" help="Permanently delete (skip Trash, purge immediately)"
+#USAGE flag "-f --folder <folder>" help="Folder to operate on (default: INBOX)"
+
+set -e
+
+source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+ALL="${usage_all:-false}"
+PERMANENT="${usage_permanent:-false}"
+FOLDER="${usage_folder:-INBOX}"
+
+# Parse variadic args
+if [ -n "$usage_ids" ] && [[ ! "$usage_ids" =~ ^[0-9[:space:]]+$ ]]; then
+  echo "Error: IDs must be numeric (got: $usage_ids)"
+  exit 1
+fi
+read -ra IDS <<< "$usage_ids"
+
+# Reject non-permanent delete from Trash
+if echo "$FOLDER" | grep -qi '^trash$' && [ "$PERMANENT" != "true" ]; then
+  echo "Error: Cannot move Trash messages to Trash"
+  echo "Use: emails delete --permanent -f Trash <id>"
+  echo "  or: emails purge to permanently empty Trash"
+  exit 1
+fi
+
+if [ ${#IDS[@]} -eq 0 ] && [ "$ALL" != "true" ]; then
+  echo "Usage: emails delete <id> [id...]"
+  echo "       emails delete --all [-f <folder>]"
+  echo ""
+  echo "Moves message(s) to Trash. Find IDs with: emails list"
+  exit 1
+fi
+
+# --all mode: enumerate all IDs from the folder
+if [ "$ALL" = "true" ]; then
+  IDS=()
+  while IFS= read -r id; do
+    [ -n "$id" ] && IDS+=("$id")
+  done < <(himalaya envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 2>/dev/null \
+    | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
+
+  if [ ${#IDS[@]} -eq 0 ]; then
+    echo "$FOLDER is empty"
+    exit 0
+  fi
+  echo "Deleting ${#IDS[@]} message(s) from $FOLDER..."
+fi
+
+if [ "$PERMANENT" = "true" ]; then
+  himalaya flag add -a "$AGENT" -f "$FOLDER" "${IDS[@]}" deleted
+  himalaya folder expunge -a "$AGENT" "$FOLDER"
+  echo "Permanently deleted ${#IDS[@]} message(s) from $FOLDER"
+else
+  himalaya message delete -a "$AGENT" -f "$FOLDER" "${IDS[@]}"
+  echo "Moved ${#IDS[@]} message(s) to Trash"
+fi

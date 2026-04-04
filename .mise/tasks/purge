@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#MISE description="Permanently delete all messages in a folder"
+#USAGE arg "[folder]" help="Folder to purge (default: Trash)"
+#USAGE flag "--force" help="Skip confirmation prompt"
+
+set -e
+
+source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+FOLDER="${usage_folder:-Trash}"
+FORCE="${usage_force:-false}"
+
+# Count messages in folder
+COUNT=$(himalaya envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 2>/dev/null | tail -n +4 | wc -l | tr -d ' ')
+
+if [ "$COUNT" -eq 0 ]; then
+  echo "$FOLDER is empty"
+  exit 0
+fi
+
+# Confirm unless --force
+if [ "$FORCE" != "true" ]; then
+  echo "This will permanently delete $COUNT message(s) from $FOLDER."
+  printf "Continue? [y/N] "
+  read -r REPLY
+  if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+    echo "Aborted"
+    exit 1
+  fi
+fi
+
+if [ "$FORCE" = "true" ]; then
+  himalaya folder purge -a "$AGENT" -y "$FOLDER"
+else
+  himalaya folder purge -a "$AGENT" "$FOLDER"
+fi
+echo "Purged $COUNT message(s) from $FOLDER"

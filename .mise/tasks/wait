@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#MISE description="Wait for new email to arrive"
+#USAGE flag "-f --folder <folder>" help="Folder to watch (default: INBOX)"
+#USAGE flag "-n --count <n>" help="Wait for at least N new messages (default: 1)"
+#USAGE flag "--timeout <duration>" help="Max wait time in seconds (default: 600)"
+#USAGE flag "--interval <seconds>" help="Poll interval in seconds (default: 30)"
+#USAGE arg "[query...]" var=#true help="Optional himalaya query filter (e.g. 'from groups.io')"
+
+set -e
+
+source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+FOLDER="${usage_folder:-INBOX}"
+COUNT="${usage_count:-1}"
+INTERVAL="${usage_interval:-30}"
+TIMEOUT="${usage_timeout:-600}"
+
+# Parse optional query (variadic args)
+QUERY_ARGS=()
+if [ -n "${usage_query:-}" ]; then
+  read -ra QUERY_ARGS <<< "$usage_query"
+fi
+
+# Fetch current envelope IDs from the folder
+get_ids() {
+  himalaya envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 -o json "${QUERY_ARGS[@]}" 2>/dev/null \
+    | jq -r '.[].id'
+}
+
+debug() { [ "${DEBUG:-}" = "1" ] && echo "[debug] $*" >&2 || true; }
+
+# Snapshot current state
+INITIAL_IDS=$(get_ids | sort)
+debug "snapshot: $(echo "$INITIAL_IDS" | tr '\n' ' ')"
+
+# Poll loop
+ELAPSED=0
+while true; do
+  sleep "$INTERVAL"
+  ELAPSED=$((ELAPSED + INTERVAL))
+
+  CURRENT_IDS=$(get_ids | sort)
+  NEW_IDS=$(comm -23 <(echo "$CURRENT_IDS") <(echo "$INITIAL_IDS"))
+  NEW_COUNT=$(echo "$NEW_IDS" | grep -c . || true)
+
+  printf "\rWaiting for mail in %s... %ds (%d new)" "$FOLDER" "$ELAPSED" "$NEW_COUNT" >&2
+
+  if [ "$NEW_COUNT" -ge "$COUNT" ]; then
+    echo "" >&2
+    echo "$NEW_IDS"
+    exit 0
+  fi
+
+  if [ "$TIMEOUT" -gt 0 ] && [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+    echo "" >&2
+    if [ "$NEW_COUNT" -gt 0 ]; then
+      echo "Timeout: $NEW_COUNT/$COUNT new" >&2
+      echo "$NEW_IDS"
+    fi
+    exit 0
+  fi
+done

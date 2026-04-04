@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+#MISE description="Send a GPG-signed email"
+#USAGE arg "<to>" help="Recipient email address"
+#USAGE arg "<subject>" help="Email subject"
+#USAGE arg "[body]" help="Message body (optional, or use -b flag or stdin)"
+#USAGE flag "-b --body <body>" help="Message body (alternative to positional arg)"
+#USAGE flag "-a --attach <attach>" help="File path to attach (repeatable)" var=#true
+#USAGE flag "--allow-short" help="Allow short message bodies (under 50 chars)"
+#USAGE flag "--html" help="Send body as HTML (Content-Type: text/html)"
+
+set -e
+
+source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+TO="${usage_to:-$1}"
+SUBJECT="${usage_subject:-$2}"
+
+if [ -z "$TO" ] || [ -z "$SUBJECT" ]; then
+  echo "Usage: emails send <to> <subject> [body]"
+  echo ""
+  echo "Body can be provided exactly one way:"
+  echo "  emails send admin@ricon.family 'Subject' 'inline body'"
+  echo "  emails send admin@ricon.family 'Subject' -b 'flag body'"
+  echo "  emails send admin@ricon.family 'Subject' -b /path/to/file.txt"
+  echo "  cat body.txt | emails send admin@ricon.family 'Subject'"
+  echo ""
+  echo "HTML email:"
+  echo "  emails send admin@ricon.family 'Subject' --html -b /path/to/file.html"
+  echo "  cat body.html | emails send admin@ricon.family 'Subject' --html"
+  echo ""
+  echo "Attachments:"
+  echo "  emails send admin@ricon.family 'Subject' 'body' -a /path/to/file.pdf"
+  echo "  emails send admin@ricon.family 'Subject' 'body' -a one.pdf -a two.pdf"
+  echo ""
+  echo "Messages are GPG-signed automatically."
+  exit 1
+fi
+
+# Body from explicit arg (mise maps both positional [body] and -b flag to usage_body).
+# Treat "-" as "read from stdin" (standard Unix convention).
+BODY="${usage_body:-${3:-}}"
+[ "$BODY" = "-" ] && BODY=""
+
+# If BODY looks like a file path and the file exists, read its contents
+if [ -n "$BODY" ] && [ -f "$BODY" ]; then
+  BODY=$(cat "$BODY")
+fi
+
+# If no body arg, read from stdin (piped) or prompt interactively.
+if [ -z "$BODY" ]; then
+  if [ -t 0 ]; then
+    echo "Enter message body (Ctrl+D when done):"
+  fi
+  BODY=$(cat)
+fi
+
+FROM="${AGENT}@ricon.family"
+
+if [ -z "${BODY:-}" ]; then
+  echo "Error: Message body is required"
+  exit 1
+fi
+
+# Guard against suspiciously short messages (wrong args, unresolved paths, etc.)
+BODY_LEN=${#BODY}
+if [ "$BODY_LEN" -lt 50 ] && [ "${usage_allow_short:-false}" != "true" ]; then
+  echo "Error: Message body seems too short ($BODY_LEN chars)."
+  echo "If intentional, re-run with --allow-short"
+  exit 1
+fi
+
+# Determine content type
+CONTENT_TYPE="text/plain"
+if [ "${usage_html:-false}" = "true" ]; then
+  CONTENT_TYPE="text/html"
+fi
+
+# Build attachment MML parts and validate files
+ATTACH_MML=""
+if [ -n "${usage_attach:-}" ]; then
+  while IFS= read -r filepath; do
+    if [[ "$filepath" != /* ]]; then
+      filepath="$(cd "$(dirname "$filepath")" && pwd)/$(basename "$filepath")"
+    fi
+    if [ ! -f "$filepath" ]; then
+      echo "Error: Attachment not found: $filepath"
+      exit 1
+    fi
+    ATTACH_MML="${ATTACH_MML}
+<#part filename=\"${filepath}\"><#/part>"
+    echo "Attaching: $(basename "$filepath") ($(du -h "$filepath" | cut -f1 | tr -d ' '))"
+  done < <(echo "$usage_attach" | xargs -n1 printf '%s\n')
+fi
+
+# Send with GPG signing using MML template.
+himalaya template send -a "$AGENT" << EOF
+From: $FROM
+To: $TO
+Subject: $SUBJECT
+
+<#multipart type=mixed sign=pgpmime>
+<#part type=$CONTENT_TYPE>
+$BODY
+<#/part>
+$ATTACH_MML
+<#/multipart>
+EOF
+
+echo "Sent to $TO"

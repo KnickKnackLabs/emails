@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#MISE description="Archive email message(s)"
+#USAGE arg "<id>" help="Message ID to archive"
+
+set -e
+
+source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+ID="$1"
+
+if [ -z "$ID" ]; then
+  echo "Usage: emails archive <id>"
+  echo ""
+  echo "Moves message to Archive folder. Find IDs with: emails list"
+  exit 1
+fi
+
+# Create Archive folder if it doesn't exist
+if ! himalaya folder list -a "$AGENT" | grep -q "^| Archive "; then
+  himalaya folder create -a "$AGENT" Archive
+fi
+
+himalaya message move -a "$AGENT" Archive "$ID"
+echo "Archived message $ID"

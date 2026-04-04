@@ -1,0 +1,32 @@
+# Sourceable helper for email tasks.
+# Sets: AGENT, CONFIG_FILE
+# When sourced with NEED_IMAP=1, also sets: PASS
+#
+# Usage: source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+export RUST_LOG=error
+
+# Determine current agent from environment or git config
+if [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then
+  AGENT=$(echo "$GIT_AUTHOR_EMAIL" | sed 's/@ricon\.family$//')
+elif git config user.email 2>/dev/null | grep -q '@ricon.family'; then
+  AGENT=$(git config user.email | sed 's/@ricon\.family$//')
+else
+  echo "No agent identity detected. Run: eval \$(shimmer as <agent>)"
+  return 1 2>/dev/null || exit 1
+fi
+
+CONFIG_FILE="${HOME}/.config/himalaya/config.toml"
+if [ ! -f "$CONFIG_FILE" ] || ! grep -q "accounts.$AGENT" "$CONFIG_FILE" 2>/dev/null; then
+  echo "Email not configured for $AGENT. Run: emails setup $AGENT"
+  return 1 2>/dev/null || exit 1
+fi
+
+# IMAP password — only extracted when caller needs direct IMAP access
+if [ "${NEED_IMAP:-0}" = "1" ]; then
+  PASS=$(grep -A30 "accounts.$AGENT" "$CONFIG_FILE" | grep 'auth.raw' | head -1 | sed 's/.*= *"//' | sed 's/"$//')
+  if [ -z "$PASS" ]; then
+    echo "Could not read email password from config"
+    return 1 2>/dev/null || exit 1
+  fi
+fi
