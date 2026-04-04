@@ -88,3 +88,16 @@ HTML
   run cat "$sent_msg"
   [[ "$output" == *"text/html"* ]]
 }
+
+@test "send: cc flag adds Cc header" {
+  emails send test-agent@ricon.family "CC test" \
+    "This message tests that the CC flag adds a proper Cc header to the sent email." \
+    -c alice@example.com -c bob@example.com
+
+  local sent_msg
+  sent_msg=$(find "$MAILDIR_ROOT/Sent" -type f | head -1)
+  run cat "$sent_msg"
+  [[ "$output" == *"Cc:"* ]]
+  [[ "$output" == *"alice@example.com"* ]]
+  [[ "$output" == *"bob@example.com"* ]]
+}
