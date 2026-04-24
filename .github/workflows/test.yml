@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: "Tests - ${{ matrix.name }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Ubuntu 24.04"
+            os: ubuntu-24.04
+          - name: "macOS (ARM)"
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up mise
+        uses: jdx/mise-action@v3
+        with:
+          install: true
+
+      - name: Run unit tests
+        run: mise run test
+
+      - name: Run integration tests
+        run: mise run test-integration
