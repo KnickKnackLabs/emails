@@ -3,7 +3,7 @@
 #USAGE arg "[folder]" help="Folder to purge (default: Trash)"
 #USAGE flag "--force" help="Skip confirmation prompt"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 

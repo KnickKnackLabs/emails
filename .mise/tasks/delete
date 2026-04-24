@@ -5,7 +5,7 @@
 #USAGE flag "--permanent" help="Permanently delete (skip Trash, purge immediately)"
 #USAGE flag "-f --folder <folder>" help="Folder to operate on (default: INBOX)"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
@@ -14,11 +14,12 @@ PERMANENT="${usage_permanent:-false}"
 FOLDER="${usage_folder:-INBOX}"
 
 # Parse variadic args
-if [ -n "$usage_ids" ] && [[ ! "$usage_ids" =~ ^[0-9[:space:]]+$ ]]; then
-  echo "Error: IDs must be numeric (got: $usage_ids)"
+IDS_RAW="${usage_ids:-}"
+if [ -n "$IDS_RAW" ] && [[ ! "$IDS_RAW" =~ ^[0-9[:space:]]+$ ]]; then
+  echo "Error: IDs must be numeric (got: $IDS_RAW)"
   exit 1
 fi
-read -ra IDS <<< "$usage_ids"
+read -ra IDS <<< "$IDS_RAW"
 
 # Reject non-permanent delete from Trash
 if echo "$FOLDER" | grep -qi '^trash$' && [ "$PERMANENT" != "true" ]; then

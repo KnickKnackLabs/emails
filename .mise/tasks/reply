@@ -8,12 +8,12 @@
 #USAGE flag "--allow-short" help="Allow short reply bodies (under 50 chars)"
 #USAGE flag "--html" help="Send reply as HTML (Content-Type: text/html)"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
-ID="${usage_id:-$1}"
-BODY="${usage_body:-${2:-}}"
+ID="$usage_id"
+BODY="${usage_body:-}"
 
 if [ -z "$ID" ]; then
   echo "Usage: emails reply <id> [body]"

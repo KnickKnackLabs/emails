@@ -15,7 +15,11 @@ if [ -z "${MISE_CONFIG_ROOT:-}" ]; then
 fi
 
 emails() {
-  cd "$MISE_CONFIG_ROOT" && mise run -q "$@"
+  if [ -z "${CALLER_PWD:-}" ]; then
+    echo "CALLER_PWD not set — wrapper expects tests to set it in setup()" >&2
+    return 1
+  fi
+  cd "$MISE_CONFIG_ROOT" && CALLER_PWD="$CALLER_PWD" mise run -q "$@"
 }
 export -f emails
 
@@ -25,6 +29,7 @@ setup_maildir() {
   export MAILDIR_ROOT="$BATS_TEST_TMPDIR/maildir"
   export AGENT="test-agent"
   export GIT_AUTHOR_EMAIL="test-agent@ricon.family"
+  export CALLER_PWD="${CALLER_PWD:-$BATS_TEST_TMPDIR}"
 
   # Create maildir folder structure (INBOX, Sent, Trash, Archive)
   for folder in INBOX Sent Trash Archive Drafts; do

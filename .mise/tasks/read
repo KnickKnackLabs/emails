@@ -4,11 +4,11 @@
 #USAGE flag "-f --folder <folder>" help="Folder to read from (default: INBOX)"
 #USAGE flag "-s --save-attachments" help="Download attachments to agent workspace"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
-ID="${usage_id:-$1}"
+ID="$usage_id"
 FOLDER="${usage_folder:-INBOX}"
 
 if [ -z "$ID" ]; then

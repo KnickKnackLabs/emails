@@ -2,9 +2,9 @@
 #MISE description="Setup email (himalaya) for an agent (one-time local setup)"
 #USAGE arg "<agent>" help="Agent name (e.g., quick, brownie)"
 
-set -e
+set -euo pipefail
 
-AGENT="${1:?Usage: emails setup <agent>}"
+AGENT="$usage_agent"
 EMAIL="${AGENT}@ricon.family"
 DOMAIN="ricon.family"
 MAIL_SERVER="mail.ricon.family"

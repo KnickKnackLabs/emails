@@ -9,12 +9,12 @@
 #USAGE flag "--allow-short" help="Allow short message bodies (under 50 chars)"
 #USAGE flag "--html" help="Send body as HTML (Content-Type: text/html)"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
-TO="${usage_to:-$1}"
-SUBJECT="${usage_subject:-$2}"
+TO="$usage_to"
+SUBJECT="$usage_subject"
 
 if [ -z "$TO" ] || [ -z "$SUBJECT" ]; then
   echo "Usage: emails send <to> <subject> [body]"
@@ -44,7 +44,7 @@ fi
 
 # Body from explicit arg (mise maps both positional [body] and -b flag to usage_body).
 # Treat "-" as "read from stdin" (standard Unix convention).
-BODY="${usage_body:-${3:-}}"
+BODY="${usage_body:-}"
 [ "$BODY" = "-" ] && BODY=""
 
 # If BODY looks like a file path and the file exists, read its contents

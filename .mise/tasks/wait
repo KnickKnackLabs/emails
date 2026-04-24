@@ -6,7 +6,7 @@
 #USAGE flag "--interval <seconds>" help="Poll interval in seconds (default: 30)"
 #USAGE arg "[query...]" var=#true help="Optional himalaya query filter (e.g. 'from groups.io')"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 

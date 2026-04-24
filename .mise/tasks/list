@@ -6,7 +6,7 @@
 #USAGE flag "--unread" help="Only show unread messages"
 #USAGE flag "--count" help="Just output the count (useful for scripts)"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 

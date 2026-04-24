@@ -2,11 +2,11 @@
 #MISE description="Archive email message(s)"
 #USAGE arg "<id>" help="Message ID to archive"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
-ID="$1"
+ID="$usage_id"
 
 if [ -z "$ID" ]; then
   echo "Usage: emails archive <id>"

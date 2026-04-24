@@ -3,7 +3,7 @@
 #USAGE flag "-f --folder <folder>" help="Show details for a specific folder only"
 #USAGE flag "--top <n>" help="Number of largest messages to show per folder (default: 5)"
 
-set -e
+set -euo pipefail
 
 FOLDER="${usage_folder:-}"
 TOP="${usage_top:-5}"

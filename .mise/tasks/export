@@ -6,7 +6,7 @@
 #USAGE flag "-f --folder <folder>" help="Folder to export from (default: INBOX)"
 #USAGE flag "-n --limit <limit>" help="Limit number of emails when using --all (default: 500)"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
@@ -16,11 +16,12 @@ LIMIT="${usage_limit:-500}"
 ALL="${usage_all:-false}"
 
 # Parse variadic args
-if [ -n "$usage_ids" ] && [[ ! "$usage_ids" =~ ^[0-9[:space:]]+$ ]]; then
-  echo "Error: IDs must be numeric (got: $usage_ids)"
+IDS_RAW="${usage_ids:-}"
+if [ -n "$IDS_RAW" ] && [[ ! "$IDS_RAW" =~ ^[0-9[:space:]]+$ ]]; then
+  echo "Error: IDs must be numeric (got: $IDS_RAW)"
   exit 1
 fi
-read -ra IDS <<< "$usage_ids"
+read -ra IDS <<< "$IDS_RAW"
 
 # Create destination directory
 mkdir -p "$DEST"
