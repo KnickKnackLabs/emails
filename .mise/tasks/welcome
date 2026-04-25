@@ -51,16 +51,19 @@ echo ""
 
 # Show folder summary
 echo "Folders:"
-for folder in INBOX Sent Trash Archive; do
-  count=$(himalaya envelope list -a "$AGENT" -f "$folder" --page-size 1000 2>/dev/null | tail -n +4 | wc -l | tr -d ' ')
-  printf "  %-10s %s messages\n" "$folder" "$count"
-done
+{
+  for folder in INBOX Sent Trash Archive; do
+    count=$(himalaya envelope list -a "$AGENT" -f "$folder" --page-size 1000 2>/dev/null | tail -n +4 | wc -l | tr -d ' ')
+    printf '%s|%s\n' "$folder" "$count"
+  done
+} | gum table -s '|' -c 'Folder,Messages' -p
 echo ""
 
 # Show recent messages
 echo "Recent messages:"
 if command -v himalaya &> /dev/null; then
-  EMAILS=$(himalaya envelope list -a "$AGENT" -w 100 | head -7 || true)
+  # Empty-on-failure is fine: the branch below shows a helpful fallback message.
+  EMAILS=$(himalaya envelope list -a "$AGENT" -w 100 2>&1 | head -7) || EMAILS=""
   if [ -n "$EMAILS" ]; then
     echo "$EMAILS" | sed 's/^/  /'
   else

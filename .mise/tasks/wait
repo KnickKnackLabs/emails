@@ -27,7 +27,11 @@ get_ids() {
     | jq -r '.[].id'
 }
 
-debug() { [ "${DEBUG:-}" = "1" ] && echo "[debug] $*" >&2 || true; }
+debug() {
+  if [ "${DEBUG:-}" = "1" ]; then
+    echo "[debug] $*" >&2
+  fi
+}
 
 # Snapshot current state
 INITIAL_IDS=$(get_ids | sort)
@@ -41,7 +45,8 @@ while true; do
 
   CURRENT_IDS=$(get_ids | sort)
   NEW_IDS=$(comm -23 <(echo "$CURRENT_IDS") <(echo "$INITIAL_IDS"))
-  NEW_COUNT=$(echo "$NEW_IDS" | grep -c . || true)
+  # grep -c exits 1 when no lines match, but still prints "0"
+  NEW_COUNT=$(echo "$NEW_IDS" | grep -c . || [ $? -eq 1 ])
 
   printf "\rWaiting for mail in %s... %ds (%d new)" "$FOLDER" "$ELAPSED" "$NEW_COUNT" >&2
 

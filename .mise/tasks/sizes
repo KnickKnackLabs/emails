@@ -32,7 +32,7 @@ for F in "${FOLDERS[@]}"; do
   COUNT="${COUNT:-0}"
 
   if [ "$COUNT" = "0" ]; then
-    printf "%-10s %6s  (%s messages)\n" "$F:" "0KB" "0"
+    printf "%-10s %6s  (%s messages)\n" "$F:" "0KB" "0"  # codebase:ignore gum-table — header of a tree output, not a table
     continue
   fi
 
@@ -54,14 +54,14 @@ for F in "${FOLDERS[@]}"; do
     TOTAL_DISPLAY="${TOTAL_KB}KB"
   fi
 
-  printf "%-10s %6s  (%s messages)\n" "$F:" "$TOTAL_DISPLAY" "$COUNT"
+  printf "%-10s %6s  (%s messages)\n" "$F:" "$TOTAL_DISPLAY" "$COUNT"  # codebase:ignore gum-table — header of a tree output, not a table
 
   echo "$ID_SIZES" | sort -k2 -rn | head -"$TOP" | while read -r ID S; do
     S_KB=$((S / 1024))
     if [ "$S_KB" -ge 1024 ]; then
-      printf "           └ #%-4s %dMB\n" "$ID" "$((S_KB / 1024))"
+      printf "           └ #%-4s %dMB\n" "$ID" "$((S_KB / 1024))"  # codebase:ignore gum-table — hierarchical tree, not tabular
     elif [ "$S_KB" -gt 0 ]; then
-      printf "           └ #%-4s %dKB\n" "$ID" "$S_KB"
+      printf "           └ #%-4s %dKB\n" "$ID" "$S_KB"  # codebase:ignore gum-table — hierarchical tree, not tabular
     fi
   done
 done
