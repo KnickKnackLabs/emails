@@ -15,10 +15,14 @@ COUNT="${usage_count:-1}"
 INTERVAL="${usage_interval:-30}"
 TIMEOUT="${usage_timeout:-600}"
 
-# Parse optional query (variadic args)
+# Parse optional query (variadic args) — xargs respects mise's shell-quote
+# wrapping so a query like "from groups.io" stays as one arg. read -ra
+# would split it on whitespace.
 QUERY_ARGS=()
 if [ -n "${usage_query:-}" ]; then
-  read -ra QUERY_ARGS <<< "$usage_query"
+  while IFS= read -r arg; do
+    QUERY_ARGS+=("$arg")
+  done < <(printf '%s' "$usage_query" | xargs -n1 printf '%s\n')
 fi
 
 # Fetch current envelope IDs from the folder
