@@ -2,6 +2,10 @@
 import { escapeAttr, flatten, safeHtml } from "../jsx-runtime";
 
 export function Heading({ level = 1, children }: { level?: 1 | 2 | 3; children?: any }) {
+  if (level !== 1 && level !== 2 && level !== 3) {
+    throw new TypeError("Heading level must be 1, 2, or 3");
+  }
+
   const styles: Record<number, string> = {
     1: "font-size:20px;border-bottom:2px solid #333;padding-bottom:8px;margin:24px 0 12px 0;",
     2: "font-size:16px;color:#555;margin:24px 0 8px 0;",
@@ -51,5 +55,9 @@ export function LineBreak() {
 }
 
 export function Spacer({ height = 16 }: { height?: number }) {
+  if (typeof height !== "number" || !Number.isFinite(height) || height < 0) {
+    throw new TypeError("Spacer height must be a finite non-negative number");
+  }
+
   return safeHtml(`<div style="height:${height}px;"></div>\n`);
 }

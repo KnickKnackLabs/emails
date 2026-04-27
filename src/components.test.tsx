@@ -39,6 +39,11 @@ describe("Heading", () => {
     expectHtml(html).toContain("style=");
     expectHtml(html).toContain("font-size");
   });
+
+  test("rejects invalid level values at runtime", () => {
+    expect(() => <Heading level={'1 onclick="alert(1)' as any}>Title</Heading>)
+      .toThrow("Heading level must be 1, 2, or 3");
+  });
 });
 
 describe("Paragraph", () => {
@@ -131,6 +136,13 @@ describe("Spacer", () => {
   test("accepts custom height", () => {
     const html = <Spacer height={32} />;
     expectHtml(html).toContain("height:32px");
+  });
+
+  test("rejects invalid height values at runtime", () => {
+    expect(() => <Spacer height={'1" onclick="alert(1)' as any} />)
+      .toThrow("Spacer height must be a finite non-negative number");
+    expect(() => <Spacer height={-1} />)
+      .toThrow("Spacer height must be a finite non-negative number");
   });
 });
 

@@ -215,6 +215,34 @@ TSX
   [[ "$output" == *"not found"* ]]
 }
 
+@test "compose: rejects invalid Heading level at runtime" {
+  cat > "$BATS_TEST_TMPDIR/bad-heading.tsx" <<'TSX'
+/** @jsxImportSource emails */
+import { email } from "emails/src/email";
+import { Heading } from "emails";
+
+console.log(email({ body: <Heading level={'1 onclick="alert(1)' as any}>Bad</Heading> }));
+TSX
+
+  run emails compose "$BATS_TEST_TMPDIR/bad-heading.tsx"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Heading level must be 1, 2, or 3"* ]]
+}
+
+@test "compose: rejects invalid Spacer height at runtime" {
+  cat > "$BATS_TEST_TMPDIR/bad-spacer.tsx" <<'TSX'
+/** @jsxImportSource emails */
+import { email } from "emails/src/email";
+import { Spacer } from "emails";
+
+console.log(email({ body: <Spacer height={'1" onclick="alert(1)' as any} /> }));
+TSX
+
+  run emails compose "$BATS_TEST_TMPDIR/bad-spacer.tsx"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Spacer height must be a finite non-negative number"* ]]
+}
+
 @test "compose: fails without arguments" {
   run emails compose
   [ "$status" -ne 0 ]
