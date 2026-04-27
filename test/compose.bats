@@ -5,7 +5,6 @@ bats_require_minimum_version 1.5.0
 load helpers
 
 setup() {
-  export MISE_CONFIG_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   setup_agent
 }
 
@@ -253,7 +252,7 @@ TSX
 # ============================================================================
 
 @test "compose: session-report example runs" {
-  run emails compose "$MISE_CONFIG_ROOT/examples/session-report.tsx" \
+  run emails compose "$REPO_DIR/examples/session-report.tsx" \
     --agent test-agent \
     --shipped "feature: details here" \
     --next "do more stuff"
@@ -264,7 +263,7 @@ TSX
 }
 
 @test "compose: alert example runs" {
-  run emails compose "$MISE_CONFIG_ROOT/examples/alert.tsx" \
+  run emails compose "$REPO_DIR/examples/alert.tsx" \
     --severity warning \
     --title "Disk almost full" \
     --detail "92% used on /dev/sda1"
@@ -274,7 +273,7 @@ TSX
 }
 
 @test "compose: review-request example runs" {
-  run emails compose "$MISE_CONFIG_ROOT/examples/review-request.tsx" \
+  run emails compose "$REPO_DIR/examples/review-request.tsx" \
     --repo test/repo \
     --pr 42 \
     --reviewer alice \

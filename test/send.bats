@@ -5,7 +5,6 @@ bats_require_minimum_version 1.5.0
 load helpers
 
 setup() {
-  export MISE_CONFIG_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   setup_agent
   setup_mock_himalaya
 }
@@ -83,7 +82,7 @@ setup() {
 
 @test "send: reads body from stdin" {
   local body="This is a message body piped via stdin that is definitely longer than fifty characters."
-  run bash -c "cd '$MISE_CONFIG_ROOT' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' PATH='$PATH' mise run -q send user@example.com 'Subject'"
+  run bash -c "cd '$REPO_DIR' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' PATH='$PATH' mise run -q send user@example.com 'Subject'"
   [ "$status" -eq 0 ]
 }
 
