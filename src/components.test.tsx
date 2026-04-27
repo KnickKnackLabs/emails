@@ -290,6 +290,20 @@ describe("Raw", () => {
   });
 });
 
+// --- Runtime safety ---
+
+describe("Custom components", () => {
+  test("escape plain string returns by default", () => {
+    function UserText({ value }: { value: string }) {
+      return value;
+    }
+
+    const html = <Paragraph><UserText value={'<script>alert("x")</script> & ok'} /></Paragraph>;
+    expectHtml(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; ok");
+    expectHtml(html).not.toContain("<script>");
+  });
+});
+
 // --- Composition ---
 
 describe("Composition", () => {

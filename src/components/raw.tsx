@@ -1,6 +1,6 @@
 /** @jsxImportSource emails */
-import { flattenRaw } from "../jsx-runtime";
+import { flattenRaw, safeHtml } from "../jsx-runtime";
 
 export function Raw({ children }: { children?: any }) {
-  return flattenRaw(children);
+  return safeHtml(flattenRaw(children));
 }

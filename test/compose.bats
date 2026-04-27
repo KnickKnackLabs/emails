@@ -138,6 +138,32 @@ TSX
   [[ "$output" != *"javascript:"* ]]
 }
 
+@test "compose: custom component string returns are escaped" {
+  cat > "$BATS_TEST_TMPDIR/custom.tsx" <<'TSX'
+/** @jsxImportSource emails */
+import { parseArgs } from "util";
+import { email } from "emails/src/email";
+import { Paragraph } from "emails";
+
+const { values } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: { title: { type: "string" } },
+  strict: true,
+});
+
+function UserText({ value }: { value: string }) {
+  return value;
+}
+
+console.log(email({ body: <Paragraph><UserText value={values.title!} /></Paragraph> }));
+TSX
+
+  run emails compose "$BATS_TEST_TMPDIR/custom.tsx" --title '<script>alert("x")</script> & ok'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; ok"* ]]
+  [[ "$output" != *"<script>"* ]]
+}
+
 # ============================================================================
 # Components available
 # ============================================================================

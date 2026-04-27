@@ -32,7 +32,7 @@ export function jsx(
 ): SafeHtml {
   if (typeof tag === "function") {
     const rendered = tag(props ?? {});
-    return rendered instanceof SafeHtml ? rendered : safeHtml(String(rendered));
+    return rendered instanceof SafeHtml ? rendered : safeHtml(flatten(rendered));
   }
   throw new Error(`Unknown intrinsic element: <${tag}>. Use a component instead.`);
 }
@@ -53,6 +53,6 @@ export function flattenRaw(c: any): string {
   return String(c);
 }
 
-export function Fragment({ children }: { children?: any }): string {
-  return flatten(children);
+export function Fragment({ children }: { children?: any }): SafeHtml {
+  return safeHtml(flatten(children));
 }

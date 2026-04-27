@@ -1,5 +1,5 @@
 /** @jsxImportSource emails */
-import { escapeAttr, flatten } from "../jsx-runtime";
+import { escapeAttr, flatten, safeHtml } from "../jsx-runtime";
 
 export function Heading({ level = 1, children }: { level?: 1 | 2 | 3; children?: any }) {
   const styles: Record<number, string> = {
@@ -7,20 +7,20 @@ export function Heading({ level = 1, children }: { level?: 1 | 2 | 3; children?:
     2: "font-size:16px;color:#555;margin:24px 0 8px 0;",
     3: "font-size:14px;color:#555;margin:16px 0 6px 0;",
   };
-  return `<h${level} style="${styles[level]}">${flatten(children)}</h${level}>\n`;
+  return safeHtml(`<h${level} style="${styles[level]}">${flatten(children)}</h${level}>\n`);
 }
 
 export function Paragraph({ style, children }: { style?: string; children?: any }) {
   const s = style ?? "font-size:14px;line-height:1.5;margin:8px 0;";
-  return `<p style="${escapeAttr(s)}">${flatten(children)}</p>\n`;
+  return safeHtml(`<p style="${escapeAttr(s)}">${flatten(children)}</p>\n`);
 }
 
 export function Code({ children }: { children?: any }) {
-  return `<code style="background:#f1f5f9;padding:2px 6px;border-radius:3px;font-size:13px;">${flatten(children)}</code>`;
+  return safeHtml(`<code style="background:#f1f5f9;padding:2px 6px;border-radius:3px;font-size:13px;">${flatten(children)}</code>`);
 }
 
 export function Bold({ children }: { children?: any }) {
-  return `<strong>${flatten(children)}</strong>`;
+  return safeHtml(`<strong>${flatten(children)}</strong>`);
 }
 
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
@@ -39,17 +39,17 @@ function safeHref(href: string): string {
 }
 
 export function Link({ href, children }: { href: string; children?: any }) {
-  return `<a href="${escapeAttr(safeHref(href))}" style="color:#2563eb;text-decoration:none;">${flatten(children)}</a>`;
+  return safeHtml(`<a href="${escapeAttr(safeHref(href))}" style="color:#2563eb;text-decoration:none;">${flatten(children)}</a>`);
 }
 
 export function HR() {
-  return `<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />\n`;
+  return safeHtml(`<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />\n`);
 }
 
 export function LineBreak() {
-  return `<br />\n`;
+  return safeHtml(`<br />\n`);
 }
 
 export function Spacer({ height = 16 }: { height?: number }) {
-  return `<div style="height:${height}px;"></div>\n`;
+  return safeHtml(`<div style="height:${height}px;"></div>\n`);
 }
