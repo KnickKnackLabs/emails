@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Run all tests"
 
-set -e
+set -euo pipefail
 
-export MISE_CONFIG_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-bats test/
+bats --print-output-on-failure "$MISE_CONFIG_ROOT/test/"

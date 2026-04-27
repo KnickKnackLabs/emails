@@ -5,13 +5,13 @@
 #   - Mock himalaya for test isolation (no real IMAP/SMTP)
 #   - Agent identity setup via HIMALAYA_CONFIG override
 
-if [ -z "${MISE_CONFIG_ROOT:-}" ]; then
-  echo "MISE_CONFIG_ROOT not set — run tests via: mise run test" >&2
-  exit 1
+if [ -z "${REPO_DIR:-}" ]; then
+  REPO_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+  export REPO_DIR
 fi
 
 emails() {
-  cd "$MISE_CONFIG_ROOT" && mise run -q "$@"
+  cd "$REPO_DIR" && mise run -q "$@"
 }
 export -f emails
 
