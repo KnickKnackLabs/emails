@@ -6,6 +6,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     strategy:
@@ -24,6 +27,9 @@ jobs:
 
       - name: Run BATS tests
         run: mise run test
+
+      - name: Run integration tests
+        run: mise run test-integration
 
       - name: Run component tests
         run: bun test src/
