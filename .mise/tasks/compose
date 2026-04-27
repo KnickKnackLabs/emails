@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#MISE description="Compose an email from a TSX file"
+#USAGE arg "<file>" help="Path to .tsx file"
+#USAGE arg "[args]" var=#true help="Arguments to pass to the TSX file"
+
+set -euo pipefail
+
+FILE="${usage_file:-$1}"
+
+if [ -z "$FILE" ]; then
+  echo "Usage: emails compose <file.tsx> [--arg value ...]" >&2
+  exit 1
+fi
+
+# Resolve relative paths from caller's directory
+if [[ "$FILE" != /* ]]; then
+  FILE="${CALLER_PWD:-$(pwd)}/$FILE"
+fi
+
+if [ ! -f "$FILE" ]; then
+  echo "Error: file not found: $FILE" >&2
+  exit 1
+fi
+
+# Build tsconfig override for JSX and import resolution.
+# Points at the emails package src/ for the JSX runtime and components.
+EMAILS_DIR="$MISE_CONFIG_ROOT"
+TSCONFIG=$(mktemp)
+cat > "$TSCONFIG" <<CONF
+{
+  "compilerOptions": {
+    "paths": {
+      "emails/jsx-runtime": ["$EMAILS_DIR/src/jsx-runtime.ts"],
+      "emails/jsx-dev-runtime": ["$EMAILS_DIR/src/jsx-dev-runtime.ts"],
+      "emails": ["$EMAILS_DIR/src/components/index.ts"],
+      "emails/*": ["$EMAILS_DIR/*"]
+    }
+  }
+}
+CONF
+trap 'rm -f "$TSCONFIG"' EXIT
+
+# Parse variadic args for passthrough
+ARGS=()
+if [ -n "${usage_args:-}" ]; then
+  while IFS= read -r arg; do
+    ARGS+=("$arg")
+  done < <(printf '%s' "${usage_args}" | xargs printf '%s\n')
+fi
+
+# Run the TSX file with bun, passing through any extra args.
+# Filter the spurious "directory mismatch" warning from oven-sh/bun#22023.
+bun run --tsconfig-override "$TSCONFIG" "$FILE" ${ARGS[@]+"${ARGS[@]}"} 2> >(grep -v "Internal error: directory mismatch" >&2)
