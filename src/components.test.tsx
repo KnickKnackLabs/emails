@@ -11,107 +11,126 @@ import {
   Raw,
 } from "./components";
 
+const expectHtml = (value: any) => expect(String(value));
+
 // --- Text elements ---
 
 describe("Heading", () => {
   test("renders h1 by default", () => {
     const html = <Heading>Title</Heading>;
-    expect(html).toContain("<h1");
-    expect(html).toContain("Title");
-    expect(html).toContain("</h1>");
+    expectHtml(html).toContain("<h1");
+    expectHtml(html).toContain("Title");
+    expectHtml(html).toContain("</h1>");
   });
 
   test("renders h2 with level prop", () => {
     const html = <Heading level={2}>Subtitle</Heading>;
-    expect(html).toContain("<h2");
-    expect(html).toContain("Subtitle");
+    expectHtml(html).toContain("<h2");
+    expectHtml(html).toContain("Subtitle");
   });
 
   test("renders h3 with level prop", () => {
     const html = <Heading level={3}>Small</Heading>;
-    expect(html).toContain("<h3");
+    expectHtml(html).toContain("<h3");
   });
 
   test("includes inline styles", () => {
     const html = <Heading>Title</Heading>;
-    expect(html).toContain("style=");
-    expect(html).toContain("font-size");
+    expectHtml(html).toContain("style=");
+    expectHtml(html).toContain("font-size");
   });
 });
 
 describe("Paragraph", () => {
   test("wraps text in p tag", () => {
     const html = <Paragraph>Hello world</Paragraph>;
-    expect(html).toContain("<p");
-    expect(html).toContain("Hello world");
-    expect(html).toContain("</p>");
+    expectHtml(html).toContain("<p");
+    expectHtml(html).toContain("Hello world");
+    expectHtml(html).toContain("</p>");
   });
 
   test("includes default styles", () => {
     const html = <Paragraph>Text</Paragraph>;
-    expect(html).toContain("font-size:14px");
+    expectHtml(html).toContain("font-size:14px");
   });
 
   test("accepts custom style", () => {
     const html = <Paragraph style="color:red;">Red text</Paragraph>;
-    expect(html).toContain("color:red;");
+    expectHtml(html).toContain("color:red;");
+  });
+
+  test("escapes text children by default", () => {
+    const html = <Paragraph>{'<script>alert("x")</script> & more'}</Paragraph>;
+    expectHtml(html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; more");
+    expectHtml(html).not.toContain("<script>");
   });
 });
 
 describe("Code", () => {
   test("renders inline code with background", () => {
     const html = <Code>foo()</Code>;
-    expect(html).toContain("<code");
-    expect(html).toContain("foo()");
-    expect(html).toContain("background");
+    expectHtml(html).toContain("<code");
+    expectHtml(html).toContain("foo()");
+    expectHtml(html).toContain("background");
   });
 });
 
 describe("Bold", () => {
   test("wraps in strong tag", () => {
     const html = <Bold>important</Bold>;
-    expect(html).toBe("<strong>important</strong>");
+    expectHtml(html).toBe("<strong>important</strong>");
   });
 });
 
 describe("Link", () => {
   test("renders anchor tag", () => {
     const html = <Link href="https://example.com">click</Link>;
-    expect(html).toContain('<a href="https://example.com"');
-    expect(html).toContain("click");
-    expect(html).toContain("</a>");
+    expectHtml(html).toContain('<a href="https://example.com"');
+    expectHtml(html).toContain("click");
+    expectHtml(html).toContain("</a>");
   });
 
   test("includes color style", () => {
     const html = <Link href="https://example.com">click</Link>;
-    expect(html).toContain("color:");
+    expectHtml(html).toContain("color:");
+  });
+
+  test("escapes href attributes", () => {
+    const html = <Link href={'https://example.com/?q="quoted"&ok=1'}>click</Link>;
+    expectHtml(html).toContain('href="https://example.com/?q=&quot;quoted&quot;&amp;ok=1"');
+  });
+
+  test("rejects unsafe protocols", () => {
+    const html = <Link href="javascript:alert(1)">click</Link>;
+    expectHtml(html).toContain('href="#"');
+    expectHtml(html).not.toContain("javascript:");
   });
 });
 
 describe("HR", () => {
   test("renders horizontal rule", () => {
     const html = <HR />;
-    expect(html).toContain("<hr");
-    expect(html).toContain("border");
+    expectHtml(html).toContain("<hr");
+    expectHtml(html).toContain("border");
   });
 });
 
 describe("LineBreak", () => {
   test("renders br tag", () => {
     const html = <LineBreak />;
-    expect(html).toContain("<br");
+    expectHtml(html).toContain("<br");
   });
 });
 
 describe("Spacer", () => {
   test("renders div with default height", () => {
     const html = <Spacer />;
-    expect(html).toContain("height:16px");
+    expectHtml(html).toContain("height:16px");
   });
 
   test("accepts custom height", () => {
     const html = <Spacer height={32} />;
-    expect(html).toContain("height:32px");
+    expectHtml(html).toContain("height:32px");
   });
 });
 
@@ -120,37 +139,37 @@ describe("Spacer", () => {
 describe("Card", () => {
   test("renders with default info variant", () => {
     const html = <Card>Content</Card>;
-    expect(html).toContain("Content");
-    expect(html).toContain("border-left");
+    expectHtml(html).toContain("Content");
+    expectHtml(html).toContain("border-left");
   });
 
   test("renders success variant", () => {
     const html = <Card variant="success" title="Shipped">Details</Card>;
-    expect(html).toContain("#f0fdf4"); // success bg
-    expect(html).toContain("#22c55e"); // success border
-    expect(html).toContain("Shipped");
-    expect(html).toContain("Details");
+    expectHtml(html).toContain("#f0fdf4"); // success bg
+    expectHtml(html).toContain("#22c55e"); // success border
+    expectHtml(html).toContain("Shipped");
+    expectHtml(html).toContain("Details");
   });
 
   test("renders warning variant", () => {
     const html = <Card variant="warning">Watch out</Card>;
-    expect(html).toContain("#fffbeb"); // warning bg
+    expectHtml(html).toContain("#fffbeb"); // warning bg
   });
 
   test("renders error variant", () => {
     const html = <Card variant="error">Failed</Card>;
-    expect(html).toContain("#fef2f2"); // error bg
+    expectHtml(html).toContain("#fef2f2"); // error bg
   });
 
   test("title is optional", () => {
     const html = <Card variant="info">Just body</Card>;
-    expect(html).toContain("Just body");
-    expect(html).not.toContain("<strong");
+    expectHtml(html).toContain("Just body");
+    expectHtml(html).not.toContain("<strong");
   });
 
   test("body is optional", () => {
     const html = <Card variant="success" title="Title only" />;
-    expect(html).toContain("Title only");
+    expectHtml(html).toContain("Title only");
   });
 });
 
@@ -166,12 +185,12 @@ describe("Table", () => {
         </Row>
       </Table>
     );
-    expect(html).toContain("<table");
-    expect(html).toContain("border-collapse");
-    expect(html).toContain("<tr>");
-    expect(html).toContain("<td");
-    expect(html).toContain("A");
-    expect(html).toContain("B");
+    expectHtml(html).toContain("<table");
+    expectHtml(html).toContain("border-collapse");
+    expectHtml(html).toContain("<tr>");
+    expectHtml(html).toContain("<td");
+    expectHtml(html).toContain("A");
+    expectHtml(html).toContain("B");
   });
 
   test("header cells have background", () => {
@@ -180,9 +199,9 @@ describe("Table", () => {
         <HeaderCell>Name</HeaderCell>
       </Row>
     );
-    expect(html).toContain("<th");
-    expect(html).toContain("background");
-    expect(html).toContain("Name");
+    expectHtml(html).toContain("<th");
+    expectHtml(html).toContain("background");
+    expectHtml(html).toContain("Name");
   });
 });
 
@@ -196,10 +215,10 @@ describe("Stats", () => {
         <Stat>3 repos</Stat>
       </Stats>
     );
-    expect(html).toContain("7 PRs");
-    expect(html).toContain("3 repos");
-    expect(html).toContain("border-radius");
-    expect(html).toContain("inline-block");
+    expectHtml(html).toContain("7 PRs");
+    expectHtml(html).toContain("3 repos");
+    expectHtml(html).toContain("border-radius");
+    expectHtml(html).toContain("inline-block");
   });
 });
 
@@ -212,9 +231,9 @@ describe("Section", () => {
         <Paragraph>Content here</Paragraph>
       </Section>
     );
-    expect(html).toContain("Overview");
-    expect(html).toContain("Content here");
-    expect(html).toContain("<h2");
+    expectHtml(html).toContain("Overview");
+    expectHtml(html).toContain("Content here");
+    expectHtml(html).toContain("<h2");
   });
 });
 
@@ -228,10 +247,10 @@ describe("List", () => {
         <Item>Second</Item>
       </List>
     );
-    expect(html).toContain("<ul");
-    expect(html).toContain("<li");
-    expect(html).toContain("First");
-    expect(html).toContain("Second");
+    expectHtml(html).toContain("<ul");
+    expectHtml(html).toContain("<li");
+    expectHtml(html).toContain("First");
+    expectHtml(html).toContain("Second");
   });
 
   test("renders ordered list", () => {
@@ -241,7 +260,7 @@ describe("List", () => {
         <Item>Two</Item>
       </List>
     );
-    expect(html).toContain("<ol");
+    expectHtml(html).toContain("<ol");
   });
 });
 
@@ -250,9 +269,9 @@ describe("List", () => {
 describe("Footer", () => {
   test("renders footer with border and muted text", () => {
     const html = <Footer>Built with love</Footer>;
-    expect(html).toContain("Built with love");
-    expect(html).toContain("border-top");
-    expect(html).toContain("color:");
+    expectHtml(html).toContain("Built with love");
+    expectHtml(html).toContain("border-top");
+    expectHtml(html).toContain("color:");
   });
 });
 
@@ -261,7 +280,13 @@ describe("Footer", () => {
 describe("Raw", () => {
   test("passes through HTML unchanged", () => {
     const html = <Raw>{"<div class='custom'>hello</div>"}</Raw>;
-    expect(html).toBe("<div class='custom'>hello</div>");
+    expectHtml(html).toBe("<div class='custom'>hello</div>");
+  });
+
+  test("keeps nested component output safe", () => {
+    const html = <Paragraph><Raw>{"<em>raw</em>"}</Raw>{" & escaped"}</Paragraph>;
+    expectHtml(html).toContain("<em>raw</em>");
+    expectHtml(html).toContain(" &amp; escaped");
   });
 });
 
@@ -290,13 +315,13 @@ describe("Composition", () => {
         </Stats>
       </Section>
     );
-    expect(html).toContain("<h2");
-    expect(html).toContain("Report");
-    expect(html).toContain("#f0fdf4"); // success card
-    expect(html).toContain("<strong>emails</strong>");
-    expect(html).toContain("<table");
-    expect(html).toContain("#1");
-    expect(html).toContain("7 PRs merged");
+    expectHtml(html).toContain("<h2");
+    expectHtml(html).toContain("Report");
+    expectHtml(html).toContain("#f0fdf4"); // success card
+    expectHtml(html).toContain("<strong>emails</strong>");
+    expectHtml(html).toContain("<table");
+    expectHtml(html).toContain("#1");
+    expectHtml(html).toContain("7 PRs merged");
   });
 
   test("fragment composes multiple elements", () => {
@@ -306,7 +331,7 @@ describe("Composition", () => {
         <Paragraph>Body</Paragraph>
       </>
     );
-    expect(html).toContain("<h1");
-    expect(html).toContain("<p");
+    expectHtml(html).toContain("<h1");
+    expectHtml(html).toContain("<p");
   });
 });

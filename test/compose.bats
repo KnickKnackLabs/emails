@@ -94,6 +94,50 @@ TSX
   [[ "$output" == "Just plain text." ]]
 }
 
+@test "compose: escapes dynamic text by default" {
+  cat > "$BATS_TEST_TMPDIR/escape.tsx" <<'TSX'
+/** @jsxImportSource emails */
+import { parseArgs } from "util";
+import { email } from "emails/src/email";
+import { Paragraph, Raw } from "emails";
+
+const { values } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: { title: { type: "string" } },
+  strict: true,
+});
+
+const body = (
+  <>
+    <Paragraph>{values.title}</Paragraph>
+    <Raw>{"<strong>trusted</strong>"}</Raw>
+  </>
+);
+console.log(email({ body }));
+TSX
+
+  run emails compose "$BATS_TEST_TMPDIR/escape.tsx" --title '<script>alert("x")</script> & ok'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; ok"* ]]
+  [[ "$output" != *"<script>"* ]]
+  [[ "$output" == *"<strong>trusted</strong>"* ]]
+}
+
+@test "compose: rejects unsafe link protocols" {
+  cat > "$BATS_TEST_TMPDIR/link.tsx" <<'TSX'
+/** @jsxImportSource emails */
+import { email } from "emails/src/email";
+import { Link } from "emails";
+
+console.log(email({ body: <Link href={'javascript:alert(1)'}>click</Link> }));
+TSX
+
+  run emails compose "$BATS_TEST_TMPDIR/link.tsx"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'href="#"'* ]]
+  [[ "$output" != *"javascript:"* ]]
+}
+
 # ============================================================================
 # Components available
 # ============================================================================

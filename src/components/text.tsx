@@ -1,5 +1,5 @@
 /** @jsxImportSource emails */
-import { flatten } from "../jsx-runtime";
+import { escapeAttr, flatten } from "../jsx-runtime";
 
 export function Heading({ level = 1, children }: { level?: 1 | 2 | 3; children?: any }) {
   const styles: Record<number, string> = {
@@ -12,7 +12,7 @@ export function Heading({ level = 1, children }: { level?: 1 | 2 | 3; children?:
 
 export function Paragraph({ style, children }: { style?: string; children?: any }) {
   const s = style ?? "font-size:14px;line-height:1.5;margin:8px 0;";
-  return `<p style="${s}">${flatten(children)}</p>\n`;
+  return `<p style="${escapeAttr(s)}">${flatten(children)}</p>\n`;
 }
 
 export function Code({ children }: { children?: any }) {
@@ -23,8 +23,23 @@ export function Bold({ children }: { children?: any }) {
   return `<strong>${flatten(children)}</strong>`;
 }
 
+const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+
+function safeHref(href: string): string {
+  const trimmed = href.trim();
+  try {
+    const url = new URL(trimmed);
+    if (ALLOWED_LINK_PROTOCOLS.has(url.protocol)) {
+      return trimmed;
+    }
+  } catch {
+    // Relative or malformed URLs are not useful in email; fall through.
+  }
+  return "#";
+}
+
 export function Link({ href, children }: { href: string; children?: any }) {
-  return `<a href="${href}" style="color:#2563eb;text-decoration:none;">${flatten(children)}</a>`;
+  return `<a href="${escapeAttr(safeHref(href))}" style="color:#2563eb;text-decoration:none;">${flatten(children)}</a>`;
 }
 
 export function HR() {

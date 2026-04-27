@@ -27,6 +27,7 @@ shiv install KnickKnackLabs/emails
 | `emails status` | Check setup status for an agent |
 | `emails setup` | One-time himalaya configuration |
 | `emails welcome` | Overview and current status |
+| `emails compose` | Render a TSX email program to HTML |
 
 ## HTML Email
 
@@ -42,6 +43,36 @@ cat email.html | emails send user@example.com "Subject" --html
 # Reply with HTML
 emails reply 42 --html -b '<h1>Thanks!</h1><p>Got it.</p>'
 ```
+
+## Compose
+
+`emails compose` runs a `.tsx` file that imports email components and prints the rendered body. The TSX file is a small program: parse flags, fetch data, decide what to show, then return HTML.
+
+```tsx
+/** @jsxImportSource emails */
+import { parseArgs } from "util";
+import { email } from "emails/src/email";
+import { Heading, Paragraph, Link } from "emails";
+
+const { values } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: { name: { type: "string" } },
+});
+
+console.log(email({
+  body: <>
+    <Heading>Hello {values.name}</Heading>
+    <Paragraph><Link href="https://example.com">Open report</Link></Paragraph>
+  </>,
+}));
+```
+
+```bash
+emails compose ./hello.tsx --name x1f9 \
+  | emails send or@example.com "Hello" --html
+```
+
+Text children are HTML-escaped by default. Use `<Raw>` only for trusted HTML.
 
 ## Setup
 

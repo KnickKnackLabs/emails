@@ -12,7 +12,8 @@ const variantStyles: Record<CardVariant, { bg: string; border: string; titleColo
 
 export function Card({ variant = "info", title, children }: { variant?: CardVariant; title?: string; children?: any }) {
   const v = variantStyles[variant];
+  const body = flatten(children);
   return `<div style="background:${v.bg};border-left:3px solid ${v.border};padding:12px 16px;margin:12px 0;">
-${title ? `<strong style="color:${v.titleColor};">${title}</strong>\n` : ""}${flatten(children) ? `<p style="margin:8px 0 0 0;font-size:14px;">${flatten(children)}</p>` : ""}
+${title ? `<strong style="color:${v.titleColor};">${flatten(title)}</strong>\n` : ""}${body ? `<p style="margin:8px 0 0 0;font-size:14px;">${body}</p>` : ""}
 </div>\n`;
 }

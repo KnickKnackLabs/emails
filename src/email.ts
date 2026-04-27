@@ -5,15 +5,19 @@
 //   const output = email({ body: <Section title="Report">...</Section> });
 //   console.log(output);
 
+import { flatten } from "./jsx-runtime";
+
 export interface EmailOptions {
-  body: string;
+  body: any;
   format?: "html" | "text";
 }
 
 export function email({ body, format = "html" }: EmailOptions): string {
   if (format === "text") {
-    return body;
+    return String(body);
   }
+
+  const renderedBody = flatten(body);
 
   return `<!DOCTYPE html>
 <html>
@@ -32,7 +36,7 @@ export function email({ body, format = "html" }: EmailOptions): string {
 </style>
 </head>
 <body>
-${body}
+${renderedBody}
 </body>
 </html>`;
 }
