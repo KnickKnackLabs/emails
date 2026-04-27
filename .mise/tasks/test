@@ -4,4 +4,4 @@
 set -e
 
 export MISE_CONFIG_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-bats test/
+bats --print-output-on-failure test/
