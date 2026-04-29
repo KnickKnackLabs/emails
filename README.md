@@ -22,7 +22,7 @@ shiv install KnickKnackLabs/emails
 | `emails inspect` | Show MIME structure and metadata |
 | `emails export` | Export messages to a directory |
 | `emails purge` | Permanently delete all messages in a folder |
-| `emails sizes` | Per-folder sizes and largest messages |
+| `emails sizes` | Per-folder sizes, largest messages, and optional `--group-by sender\|subject-prefix` diagnostics |
 | `emails quota` | Storage quota usage |
 | `emails status` | Check setup status for an agent |
 | `emails setup` | One-time himalaya configuration |
