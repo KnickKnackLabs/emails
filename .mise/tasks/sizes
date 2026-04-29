@@ -71,11 +71,12 @@ extract_id_sizes() {
 
 show_grouped_sizes() {
   local group_by="$1"
+  local top="$2"
   local input_file
   input_file=$(mktemp)
   cat > "$input_file"
 
-  if ! python3 - "$group_by" "$input_file" <<'PY'
+  if ! python3 - "$group_by" "$input_file" "$top" <<'PY'
 import email.header
 import email.utils
 import re
@@ -83,6 +84,7 @@ import sys
 
 mode = sys.argv[1]
 input_file = sys.argv[2]
+top = int(sys.argv[3])
 
 
 def decode_mime(value):
@@ -95,28 +97,42 @@ def decode_mime(value):
         return value
 
 
-def sender_label(value):
-    decoded = decode_mime(value)
-    name, addr = email.utils.parseaddr(decoded)
-    return (addr or name or decoded or "(unknown sender)").lower()
-
-
-def subject_prefix(value):
-    subject = decode_mime(value)
-    match = re.match(r"\s*(\[[^\]]+\])", subject)
-    if match:
-        return match.group(1)
-    match = re.match(r"\s*([^:]{1,60}:)", subject)
-    if match:
-        return match.group(1).strip()
-    words = subject.split()
-    if not words:
-        return "(no subject)"
-    return " ".join(words[:6])
-
-
 def clean_label(value):
     return re.sub(r"\s+", " ", value).strip()
+
+
+def sender_group(value):
+    decoded = decode_mime(value)
+    name, addr = email.utils.parseaddr(decoded)
+    label = (addr or name or decoded or "(unknown sender)").lower()
+    return label, label
+
+
+def strip_reply_markers(subject):
+    marker = re.compile(r"^\s*(?:(?:re|fw|fwd)\s*:\s*)", re.I)
+    previous = None
+    while subject != previous:
+        previous = subject
+        subject = marker.sub("", subject, count=1)
+    return subject
+
+
+def subject_prefix_group(value):
+    subject = strip_reply_markers(decode_mime(value))
+    match = re.match(r"\s*(\[[^\]]+\])", subject)
+    if match:
+        label = match.group(1)
+        return label, label.casefold()
+    match = re.match(r"\s*([^:]{1,60}:)", subject)
+    if match:
+        label = match.group(1).strip()
+        return label, label.casefold()
+    words = subject.split()
+    if not words:
+        label = "(no subject)"
+    else:
+        label = " ".join(words[:6])
+    return label, label.casefold()
 
 
 groups = {}
@@ -131,13 +147,12 @@ def finish_current():
         return
     uid, size = current
     if mode == "sender":
-        label = sender_label(headers.get("from", ""))
+        label, key = sender_group(headers.get("from", ""))
     else:
-        label = subject_prefix(headers.get("subject", ""))
-    label = clean_label(label)
-    if not label:
-        label = "(unknown)"
-    entry = groups.setdefault(label, {"count": 0, "size": 0})
+        label, key = subject_prefix_group(headers.get("subject", ""))
+    label = clean_label(label) or "(unknown)"
+    key = clean_label(key) or label.casefold()
+    entry = groups.setdefault(key, {"label": label, "count": 0, "size": 0})
     entry["count"] += 1
     entry["size"] += size
     current = None
@@ -174,8 +189,8 @@ with open(input_file, encoding="utf-8", errors="replace") as handle:
 
 finish_current()
 
-for label, data in sorted(groups.items(), key=lambda item: (-item[1]["size"], item[0])):
-    print(f"{data['size']}\t{data['count']}\t{label}")
+for data in sorted(groups.values(), key=lambda item: (-item["size"], item["label"]))[:top]:
+    print(f"{data['size']}\t{data['count']}\t{data['label']}")
 PY
   then
     rm -f "$input_file"
@@ -202,7 +217,7 @@ for F in "${FOLDERS[@]}"; do
   printf "%-10s %6s  (%s messages)\n" "$F:" "$TOTAL_DISPLAY" "$COUNT"
 
   if [ -n "$GROUP_BY" ]; then
-    echo "$RESULT" | show_grouped_sizes "$GROUP_BY" | head -"$TOP" | while IFS=$'\t' read -r S GROUP_COUNT LABEL; do
+    echo "$RESULT" | show_grouped_sizes "$GROUP_BY" "$TOP" | while IFS=$'\t' read -r S GROUP_COUNT LABEL; do
       [ -z "$S" ] && continue
       printf "           └ %-6s %4s  %s\n" "$(format_size "$S")" "$GROUP_COUNT" "$LABEL"
     done
