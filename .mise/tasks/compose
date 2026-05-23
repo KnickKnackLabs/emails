@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Compose an email from a TSX file"
 #USAGE arg "<file>" help="Path to .tsx file"
-#USAGE arg "[args]" var=#true help="Arguments to pass to the TSX file"
+#USAGE arg "[args]" var=#true default="" help="Arguments to pass to the TSX file"
 
 set -euo pipefail
 

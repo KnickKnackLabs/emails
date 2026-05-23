@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Permanently delete all messages in a folder"
-#USAGE arg "[folder]" help="Folder to purge (default: Trash)"
-#USAGE flag "--force" help="Skip confirmation prompt"
+#USAGE arg "[folder]" default="Trash" help="Folder to purge (default: Trash)"
+#USAGE flag "--force" default=#false help="Skip confirmation prompt"
 
 set -euo pipefail
 

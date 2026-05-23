@@ -1,19 +1,29 @@
 #!/usr/bin/env bash
 #MISE description="Reply to an email message"
 #USAGE arg "<id>" help="Message ID to reply to"
-#USAGE arg "[body]" help="Reply body (optional, or use -b flag or stdin)"
-#USAGE flag "-b --body <body>" help="Reply body (alternative to positional arg)"
-#USAGE flag "-c --cc <cc>" help="CC recipient (repeatable)" var=#true
-#USAGE flag "-a --attach <attach>" help="File path to attach (repeatable)" var=#true
-#USAGE flag "--allow-short" help="Allow short reply bodies (under 50 chars)"
-#USAGE flag "--html" help="Send reply as HTML (Content-Type: text/html)"
+#USAGE arg "[body_arg]" default="" help="Reply body (optional, or use -b flag or stdin)"
+#USAGE flag "-b --body <body>" default="" help="Reply body (alternative to positional arg)"
+#USAGE flag "-c --cc <cc>" var=#true default="" help="CC recipient (repeatable)"
+#USAGE flag "-a --attach <attach>" var=#true default="" help="File path to attach (repeatable)"
+#USAGE flag "--allow-short" default=#false help="Allow short reply bodies (under 50 chars)"
+#USAGE flag "--html" default=#false help="Send reply as HTML (Content-Type: text/html)"
 
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
 ID="$usage_id"
-BODY="${usage_body:-}"
+
+# Body from positional arg or -b/--body flag. The positional arg is named
+# `body_arg` so it does not collide with the flag's `usage_body`; defaults on
+# both values clear inherited parent `usage_*` env.
+BODY_ARG="${usage_body_arg:-}"
+BODY_FLAG="${usage_body:-}"
+if [ -n "$BODY_ARG" ] && [ -n "$BODY_FLAG" ]; then
+  echo "Error: Provide reply body either positionally or with -b/--body, not both"
+  exit 1
+fi
+BODY="${BODY_FLAG:-$BODY_ARG}"
 
 if [ -z "$ID" ]; then
   echo "Usage: emails reply <id> [body]"
@@ -62,8 +72,17 @@ fi
 
 # Build attachment MML parts and validate files
 ATTACH_MML=""
-if [ -n "${usage_attach:-}" ]; then
-  while IFS= read -r filepath; do
+ATTACHES=()
+ATTACH_COUNT=0
+while IFS= read -r filepath; do
+  if [ -n "$filepath" ]; then
+    ATTACHES+=("$filepath")
+    ATTACH_COUNT=$((ATTACH_COUNT + 1))
+  fi
+done < <(printf '%s' "${usage_attach:-}" | xargs printf '%s\n')
+
+if [ "$ATTACH_COUNT" -gt 0 ]; then
+  for filepath in "${ATTACHES[@]}"; do
     if [[ "$filepath" != /* ]]; then
       filepath="$(cd "$(dirname "$filepath")" && pwd)/$(basename "$filepath")"
     fi
@@ -74,7 +93,7 @@ if [ -n "${usage_attach:-}" ]; then
     ATTACH_MML="${ATTACH_MML}
 <#part filename=\"${filepath}\"><#/part>"
     echo "Attaching: $(basename "$filepath") ($(du -h "$filepath" | cut -f1 | tr -d ' '))"
-  done < <(echo "$usage_attach" | xargs -n1 printf '%s\n')
+  done
 fi
 
 # Get reply template headers
@@ -90,8 +109,17 @@ if [ -z "$REPLY_TO" ]; then
 fi
 
 # Add CC header if specified
-if [ -n "${usage_cc:-}" ]; then
-  CC_ADDRS=$(echo "$usage_cc" | xargs -n1 printf '%s\n' | paste -sd ',' - | sed 's/,/, /g')
+CCS=()
+CC_COUNT=0
+while IFS= read -r cc; do
+  if [ -n "$cc" ]; then
+    CCS+=("$cc")
+    CC_COUNT=$((CC_COUNT + 1))
+  fi
+done < <(printf '%s' "${usage_cc:-}" | xargs printf '%s\n')
+
+if [ "$CC_COUNT" -gt 0 ]; then
+  CC_ADDRS=$(printf '%s\n' "${CCS[@]}" | paste -sd ',' - | sed 's/,/, /g')
   HEADERS=$(echo "$HEADERS" | sed "/^Subject:/a\\\nCc: $CC_ADDRS")
 fi
 

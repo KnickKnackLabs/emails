@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #MISE description="Export emails to a directory"
-#USAGE arg "[ids...]" var=#true help="Message IDs to export"
-#USAGE flag "--all" help="Export all messages in folder"
-#USAGE flag "-d --destination <path>" help="Directory to export to (default: ./emails)"
-#USAGE flag "-f --folder <folder>" help="Folder to export from (default: INBOX)"
-#USAGE flag "-n --limit <limit>" help="Limit number of emails when using --all (default: 500)"
+#USAGE arg "[ids]" var=#true default="" help="Message IDs to export"
+#USAGE flag "--all" default=#false help="Export all messages in folder"
+#USAGE flag "-d --destination <path>" default="./emails" help="Directory to export to (default: ./emails)"
+#USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to export from (default: INBOX)"
+#USAGE flag "-n --limit <limit>" default="500" help="Limit number of emails when using --all (default: 500)"
 
 set -euo pipefail
 
@@ -16,31 +16,46 @@ LIMIT="${usage_limit:-500}"
 ALL="${usage_all:-false}"
 
 # Parse variadic args
-IDS_RAW="${usage_ids:-}"
-if [ -n "$IDS_RAW" ] && [[ ! "$IDS_RAW" =~ ^[0-9[:space:]]+$ ]]; then
-  echo "Error: IDs must be numeric (got: $IDS_RAW)"
-  exit 1
+IDS=()
+IDS_COUNT=0
+while IFS= read -r id; do
+  if [ -n "$id" ]; then
+    IDS+=("$id")
+    IDS_COUNT=$((IDS_COUNT + 1))
+  fi
+done < <(printf '%s' "${usage_ids:-}" | xargs printf '%s\n')
+
+if [ "$IDS_COUNT" -gt 0 ]; then
+  for id in "${IDS[@]}"; do
+    if [[ ! "$id" =~ ^[0-9]+$ ]]; then
+      echo "Error: IDs must be numeric (got: $id)"
+      exit 1
+    fi
+  done
 fi
-read -ra IDS <<< "$IDS_RAW"
 
 # Create destination directory
 mkdir -p "$DEST"
 
 # Get message IDs
-if [ ${#IDS[@]} -eq 0 ] || [ "$ALL" = "true" ]; then
+if [ "$IDS_COUNT" -eq 0 ] || [ "$ALL" = "true" ]; then
   echo "Fetching message list from $FOLDER..."
   IDS=()
+  IDS_COUNT=0
   while IFS= read -r id; do
-    [ -n "$id" ] && IDS+=("$id")
+    if [ -n "$id" ]; then
+      IDS+=("$id")
+      IDS_COUNT=$((IDS_COUNT + 1))
+    fi
   done < <("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size "$LIMIT" 2>/dev/null | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
 fi
 
-if [ ${#IDS[@]} -eq 0 ]; then
+if [ "$IDS_COUNT" -eq 0 ]; then
   echo "No messages to export"
   exit 0
 fi
 
-echo "Exporting ${#IDS[@]} message(s) from $FOLDER to $DEST..."
+echo "Exporting $IDS_COUNT message(s) from $FOLDER to $DEST..."
 
 EXPORTED=0
 FAILED=0
