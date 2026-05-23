@@ -9,13 +9,13 @@
 #   - emails()            — runs emails tasks via mise with test config
 #   - MAILDIR_ROOT        — path to the test maildir
 
-if [ -z "${MISE_CONFIG_ROOT:-}" ]; then
-  echo "MISE_CONFIG_ROOT not set — run tests via: mise run test:integration" >&2
-  exit 1
+if [ -z "${REPO_DIR:-}" ]; then
+  REPO_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export REPO_DIR
 fi
 
 emails() {
-  cd "$MISE_CONFIG_ROOT" && mise run -q "$@"
+  cd "$REPO_DIR" && mise run -q "$@"
 }
 export -f emails
 

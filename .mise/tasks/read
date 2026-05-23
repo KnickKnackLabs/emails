@@ -23,7 +23,7 @@ SIG_TAG=""
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-if himalaya message export --full -a "$AGENT" -f "$FOLDER" -d "$TMPDIR/msg.eml" "$ID" >/dev/null 2>&1; then
+if "$HIMALAYA_BIN" message export --full -a "$AGENT" -f "$FOLDER" -d "$TMPDIR/msg.eml" "$ID" >/dev/null 2>&1; then
   GPG_OUTPUT=$(gpg --verify "$TMPDIR/msg.eml" 2>&1) && GPG_EXIT=0 || GPG_EXIT=$?
 
   if [ $GPG_EXIT -eq 0 ] && echo "$GPG_OUTPUT" | grep -q "Good signature"; then
@@ -44,7 +44,7 @@ else
 fi
 
 # Read the message, stripping MML tags
-OUTPUT=$(himalaya message read -a "$AGENT" -f "$FOLDER" "$ID" \
+OUTPUT=$("$HIMALAYA_BIN" message read -a "$AGENT" -f "$FOLDER" "$ID" \
   | sed -E '/^[[:space:]]*<#\/?part/d; /^[[:space:]]*<#\/?multipart/d')
 
 if [ -n "$SIG_TAG" ]; then
@@ -74,7 +74,7 @@ if [ "$HAS_ATTACHMENT" = "true" ]; then
 
     # mkdir -p ran above so the dir exists; ls should not fail here
     BEFORE=$(ls -1 "$DOWNLOADS_DIR")
-    himalaya attachment download -a "$AGENT" -f "$FOLDER" -o plain "$ID" >/dev/null 2>&1
+    "$HIMALAYA_BIN" attachment download -a "$AGENT" -f "$FOLDER" -o plain "$ID" >/dev/null 2>&1
     AFTER=$(ls -1 "$DOWNLOADS_DIR")
     NEW_FILES=$(comm -13 <(echo "$BEFORE" | sort) <(echo "$AFTER" | sort))
 

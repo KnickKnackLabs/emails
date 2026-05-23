@@ -5,7 +5,6 @@ bats_require_minimum_version 1.5.0
 load helpers
 
 setup() {
-  export MISE_CONFIG_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   setup_agent
   setup_mock_himalaya
 }
@@ -58,7 +57,7 @@ setup() {
   unset GIT_AUTHOR_EMAIL
   export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
   echo "" > "$GIT_CONFIG_GLOBAL"
-  run emails list
+  GIT_CONFIG_COUNT=0 run emails list
   [ "$status" -ne 0 ]
   [[ "$output" == *"No agent identity"* ]]
 }

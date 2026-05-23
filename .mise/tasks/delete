@@ -41,7 +41,7 @@ if [ "$ALL" = "true" ]; then
   IDS=()
   while IFS= read -r id; do
     [ -n "$id" ] && IDS+=("$id")
-  done < <(himalaya envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 2>/dev/null \
+  done < <("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 2>/dev/null \
     | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
 
   if [ ${#IDS[@]} -eq 0 ]; then
@@ -52,10 +52,10 @@ if [ "$ALL" = "true" ]; then
 fi
 
 if [ "$PERMANENT" = "true" ]; then
-  himalaya flag add -a "$AGENT" -f "$FOLDER" "${IDS[@]}" deleted
-  himalaya folder expunge -a "$AGENT" "$FOLDER"
+  "$HIMALAYA_BIN" flag add -a "$AGENT" -f "$FOLDER" "${IDS[@]}" deleted
+  "$HIMALAYA_BIN" folder expunge -a "$AGENT" "$FOLDER"
   echo "Permanently deleted ${#IDS[@]} message(s) from $FOLDER"
 else
-  himalaya message delete -a "$AGENT" -f "$FOLDER" "${IDS[@]}"
+  "$HIMALAYA_BIN" message delete -a "$AGENT" -f "$FOLDER" "${IDS[@]}"
   echo "Moved ${#IDS[@]} message(s) to Trash"
 fi
