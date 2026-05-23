@@ -28,16 +28,27 @@ setup() {
 @test "wait: quoted multi-word --query is passed as a single himalaya arg" {
   usage_timeout=1 usage_interval=1 run emails wait "from groups.io"
   [ "$status" -eq 0 ]
-  # The mock logs each invocation's args, space-joined, on its own line.
-  # 'from groups.io' should appear together as one phrase — not split by a
-  # newline (which would mean read -ra fragmented it into two args).
-  run cat "$MOCK_HIMALAYA_CALLS"
-  [[ "$output" == *"from groups.io"* ]]
+  # The argv log records argument boundaries as length-prefixed fields. The
+  # query must be one 14-byte arg, not two args (`from` + `groups.io`).
+  run cat "$MOCK_HIMALAYA_ARGV_CALLS"
+  [[ "$output" == *"argc=11"* ]]
+  [[ "$output" == *$'\t14:from groups.io'* ]]
+  [[ "$output" != *$'\t4:from\t9:groups.io'* ]]
+}
+
+@test "wait: multiple query args preserve quotes and metacharacters literally" {
+  usage_timeout=1 usage_interval=1 run emails wait "from groups.io" 'subject "hello";rm'
+  [ "$status" -eq 0 ]
+  run cat "$MOCK_HIMALAYA_ARGV_CALLS"
+  [[ "$output" == *"argc=12"* ]]
+  [[ "$output" == *$'\t14:from groups.io'* ]]
+  [[ "$output" == *$'\t18:subject "hello";rm'* ]]
 }
 
 @test "wait: empty --query omits query args from himalaya call" {
   usage_timeout=1 usage_interval=1 run emails wait
   [ "$status" -eq 0 ]
-  run grep -c "from " "$MOCK_HIMALAYA_CALLS"
-  [ "$output" = "0" ]
+  run cat "$MOCK_HIMALAYA_ARGV_CALLS"
+  [[ "$output" == *"argc=10"* ]]
+  [[ "$output" != *$'\t0:'* ]]
 }
