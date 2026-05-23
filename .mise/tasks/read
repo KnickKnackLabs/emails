@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #MISE description="Read an email message"
 #USAGE arg "<id>" help="Message ID to read"
-#USAGE flag "-f --folder <folder>" help="Folder to read from (default: INBOX)"
-#USAGE flag "-s --save-attachments" help="Download attachments to agent workspace"
+#USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to read from (default: INBOX)"
+#USAGE flag "-s --save-attachments" default=#false help="Download attachments to agent workspace"
 
 set -euo pipefail
 

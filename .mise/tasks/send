@@ -4,10 +4,10 @@
 #USAGE arg "<subject>" help="Email subject"
 #USAGE arg "[body]" help="Message body (optional, or use -b flag or stdin)"
 #USAGE flag "-b --body <body>" help="Message body (alternative to positional arg)"
-#USAGE flag "-c --cc <cc>" help="CC recipient (repeatable)" var=#true
-#USAGE flag "-a --attach <attach>" help="File path to attach (repeatable)" var=#true
-#USAGE flag "--allow-short" help="Allow short message bodies (under 50 chars)"
-#USAGE flag "--html" help="Send body as HTML (Content-Type: text/html)"
+#USAGE flag "-c --cc <cc>" var=#true default="" help="CC recipient (repeatable)"
+#USAGE flag "-a --attach <attach>" var=#true default="" help="File path to attach (repeatable)"
+#USAGE flag "--allow-short" default=#false help="Allow short message bodies (under 50 chars)"
+#USAGE flag "--html" default=#false help="Send body as HTML (Content-Type: text/html)"
 
 set -euo pipefail
 
@@ -83,8 +83,17 @@ fi
 
 # Build attachment MML parts and validate files
 ATTACH_MML=""
-if [ -n "${usage_attach:-}" ]; then
-  while IFS= read -r filepath; do
+ATTACHES=()
+ATTACH_COUNT=0
+while IFS= read -r filepath; do
+  if [ -n "$filepath" ]; then
+    ATTACHES+=("$filepath")
+    ATTACH_COUNT=$((ATTACH_COUNT + 1))
+  fi
+done < <(printf '%s' "${usage_attach:-}" | xargs printf '%s\n')
+
+if [ "$ATTACH_COUNT" -gt 0 ]; then
+  for filepath in "${ATTACHES[@]}"; do
     if [[ "$filepath" != /* ]]; then
       filepath="$(cd "$(dirname "$filepath")" && pwd)/$(basename "$filepath")"
     fi
@@ -95,13 +104,23 @@ if [ -n "${usage_attach:-}" ]; then
     ATTACH_MML="${ATTACH_MML}
 <#part filename=\"${filepath}\"><#/part>"
     echo "Attaching: $(basename "$filepath") ($(du -h "$filepath" | cut -f1 | tr -d ' '))"
-  done < <(echo "$usage_attach" | xargs -n1 printf '%s\n')
+  done
 fi
 
 # Build CC header
 CC_HEADER=""
-if [ -n "${usage_cc:-}" ]; then
-  CC_ADDRS=$(echo "$usage_cc" | xargs -n1 printf '%s\n' | paste -sd ',' - | sed 's/,/, /g')
+CC_ADDRS=""
+CCS=()
+CC_COUNT=0
+while IFS= read -r cc; do
+  if [ -n "$cc" ]; then
+    CCS+=("$cc")
+    CC_COUNT=$((CC_COUNT + 1))
+  fi
+done < <(printf '%s' "${usage_cc:-}" | xargs printf '%s\n')
+
+if [ "$CC_COUNT" -gt 0 ]; then
+  CC_ADDRS=$(printf '%s\n' "${CCS[@]}" | paste -sd ',' - | sed 's/,/, /g')
   CC_HEADER="Cc: $CC_ADDRS"
 fi
 
