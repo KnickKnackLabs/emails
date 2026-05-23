@@ -5,7 +5,6 @@ bats_require_minimum_version 1.5.0
 load helpers
 
 setup() {
-  export MISE_CONFIG_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   setup_agent
   setup_mock_himalaya
 }

@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 #MISE description="Show per-folder email sizes and largest messages"
 #USAGE flag "-f --folder <folder>" help="Show details for a specific folder only"
-#USAGE flag "--top <n>" help="Number of largest messages to show per folder (default: 5)"
+#USAGE flag "--top <n>" help="Number of largest messages/groups to show per folder (default: 5)"
+#USAGE flag "--group-by <field>" help="Group by sender or subject-prefix"
 
 set -e
 
 FOLDER="${usage_folder:-}"
 TOP="${usage_top:-5}"
+GROUP_BY="${usage_group_by:-}"
+
+case "$GROUP_BY" in
+  ""|sender|subject-prefix) ;;
+  *)
+    echo "Unsupported --group-by '$GROUP_BY'"
+    echo "Use: sender or subject-prefix"
+    exit 1
+    ;;
+esac
 
 NEED_IMAP=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
@@ -16,17 +27,180 @@ else
   FOLDERS=(INBOX Sent Trash Archive)
 fi
 
-for F in "${FOLDERS[@]}"; do
-  RESULT=$({
+format_size() {
+  local bytes="$1"
+  local kb=$((bytes / 1024))
+  if [ "$kb" -ge 1024 ]; then
+    printf "%dMB" "$((kb / 1024))"
+  elif [ "$kb" -gt 0 ]; then
+    printf "%dKB" "$kb"
+  else
+    printf "0KB"
+  fi
+}
+
+fetch_sizes() {
+  local folder="$1"
+  local fetch_items="RFC822.SIZE"
+  if [ -n "$GROUP_BY" ]; then
+    fetch_items="RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"
+  fi
+
+  {
     sleep 0.3
     echo "a LOGIN ${AGENT}@ricon.family $PASS"
     sleep 0.3
-    echo "b SELECT \"$F\""
+    echo "b SELECT \"$folder\""
     sleep 0.3
-    echo "c UID FETCH 1:* (RFC822.SIZE)"
+    echo "c UID FETCH 1:* ($fetch_items)"
     sleep 0.5
     echo "d LOGOUT"
-  } | openssl s_client -connect mail.ricon.family:993 -quiet 2>/dev/null)
+  } | openssl s_client -connect mail.ricon.family:993 -quiet 2>/dev/null
+}
+
+extract_id_sizes() {
+  awk -F'[* ()]+' '{
+    id=""; size=""
+    for (i=1; i<=NF; i++) {
+      if ($i == "UID") id = $(i+1)
+      if ($i == "RFC822.SIZE") size = $(i+1)
+    }
+    if (id && size) print id, size
+  }'
+}
+
+show_grouped_sizes() {
+  local group_by="$1"
+  local top="$2"
+  local input_file
+  input_file=$(mktemp)
+  cat > "$input_file"
+
+  if ! python3 - "$group_by" "$input_file" "$top" <<'PY'
+import email.header
+import email.utils
+import re
+import sys
+
+mode = sys.argv[1]
+input_file = sys.argv[2]
+top = int(sys.argv[3])
+
+
+def decode_mime(value):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    try:
+        return str(email.header.make_header(email.header.decode_header(value)))
+    except Exception:
+        return value
+
+
+def clean_label(value):
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def sender_group(value):
+    decoded = decode_mime(value)
+    name, addr = email.utils.parseaddr(decoded)
+    label = (addr or name or decoded or "(unknown sender)").lower()
+    return label, label
+
+
+def strip_reply_markers(subject):
+    marker = re.compile(r"^\s*(?:(?:re|fw|fwd)\s*:\s*)", re.I)
+    previous = None
+    while subject != previous:
+        previous = subject
+        subject = marker.sub("", subject, count=1)
+    return subject
+
+
+def subject_prefix_group(value):
+    subject = strip_reply_markers(decode_mime(value))
+    match = re.match(r"\s*(\[[^\]]+\])", subject)
+    if match:
+        label = match.group(1)
+        return label, label.casefold()
+    match = re.match(r"\s*([^:]{1,60}:)", subject)
+    if match:
+        label = match.group(1).strip()
+        return label, label.casefold()
+    words = subject.split()
+    if not words:
+        label = "(no subject)"
+    else:
+        label = " ".join(words[:6])
+    return label, label.casefold()
+
+
+groups = {}
+current = None
+headers = {}
+last_header = None
+
+
+def finish_current():
+    global current, headers, last_header
+    if not current:
+        return
+    uid, size = current
+    if mode == "sender":
+        label, key = sender_group(headers.get("from", ""))
+    else:
+        label, key = subject_prefix_group(headers.get("subject", ""))
+    label = clean_label(label) or "(unknown)"
+    key = clean_label(key) or label.casefold()
+    entry = groups.setdefault(key, {"label": label, "count": 0, "size": 0})
+    entry["count"] += 1
+    entry["size"] += size
+    current = None
+    headers = {}
+    last_header = None
+
+
+with open(input_file, encoding="utf-8", errors="replace") as handle:
+  for raw_line in handle:
+    line = raw_line.rstrip("\r\n")
+    if re.search(r"\*\s+\d+\s+FETCH\b", line, re.I):
+        uid = re.search(r"\bUID\s+(\d+)\b", line, re.I)
+        size = re.search(r"\bRFC822\.SIZE\s+(\d+)\b", line, re.I)
+        if uid and size:
+            finish_current()
+            current = (uid.group(1), int(size.group(1)))
+            headers = {}
+            last_header = None
+            continue
+
+    if not current:
+        continue
+
+    if line == ")" or re.match(r"^[a-z]\s+OK\b", line, re.I):
+        finish_current()
+        continue
+
+    header = re.match(r"^(From|Subject):\s*(.*)$", line, re.I)
+    if header:
+        last_header = header.group(1).lower()
+        headers[last_header] = header.group(2).strip()
+    elif last_header and re.match(r"^[ \t]+", line):
+        headers[last_header] += " " + line.strip()
+
+finish_current()
+
+for data in sorted(groups.values(), key=lambda item: (-item["size"], item["label"]))[:top]:
+    print(f"{data['size']}\t{data['count']}\t{data['label']}")
+PY
+  then
+    rm -f "$input_file"
+    return 1
+  fi
+  rm -f "$input_file"
+}
+
+for F in "${FOLDERS[@]}"; do
+  RESULT=$(fetch_sizes "$F")
 
   COUNT=$(echo "$RESULT" | grep "EXISTS" | grep -oE '[0-9]+' | head -1)
   COUNT="${COUNT:-0}"
@@ -36,34 +210,23 @@ for F in "${FOLDERS[@]}"; do
     continue
   fi
 
-  ID_SIZES=$(echo "$RESULT" | grep "RFC822.SIZE" | awk -F'[* ()]+' '{
-    id=""; size=""
-    for (i=1; i<=NF; i++) {
-      if ($i == "UID") id = $(i+1)
-      if ($i == "RFC822.SIZE") size = $(i+1)
-    }
-    if (id && size) print id, size
-  }')
-
+  ID_SIZES=$(echo "$RESULT" | grep "RFC822.SIZE" | extract_id_sizes)
   TOTAL=$(echo "$ID_SIZES" | awk '{sum += $2} END {print sum+0}')
-  TOTAL_KB=$((TOTAL / 1024))
-
-  if [ "$TOTAL_KB" -ge 1024 ]; then
-    TOTAL_DISPLAY="$((TOTAL_KB / 1024))MB"
-  else
-    TOTAL_DISPLAY="${TOTAL_KB}KB"
-  fi
+  TOTAL_DISPLAY=$(format_size "$TOTAL")
 
   printf "%-10s %6s  (%s messages)\n" "$F:" "$TOTAL_DISPLAY" "$COUNT"
 
-  echo "$ID_SIZES" | sort -k2 -rn | head -"$TOP" | while read -r ID S; do
-    S_KB=$((S / 1024))
-    if [ "$S_KB" -ge 1024 ]; then
-      printf "           └ #%-4s %dMB\n" "$ID" "$((S_KB / 1024))"
-    elif [ "$S_KB" -gt 0 ]; then
-      printf "           └ #%-4s %dKB\n" "$ID" "$S_KB"
-    fi
-  done
+  if [ -n "$GROUP_BY" ]; then
+    echo "$RESULT" | show_grouped_sizes "$GROUP_BY" "$TOP" | while IFS=$'\t' read -r S GROUP_COUNT LABEL; do
+      [ -z "$S" ] && continue
+      printf "           └ %-6s %4s  %s\n" "$(format_size "$S")" "$GROUP_COUNT" "$LABEL"
+    done
+  else
+    echo "$ID_SIZES" | sort -k2 -rn | head -"$TOP" | while read -r ID S; do
+      [ -z "$ID" ] && continue
+      printf "           └ #%-4s %s\n" "$ID" "$(format_size "$S")"
+    done
+  fi
 done
 
 # Show quota if multi-folder
