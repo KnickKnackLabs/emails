@@ -2,8 +2,8 @@
 #MISE description="Send a GPG-signed email"
 #USAGE arg "<to>" help="Recipient email address"
 #USAGE arg "<subject>" help="Email subject"
-#USAGE arg "[body]" help="Message body (optional, or use -b flag or stdin)"
-#USAGE flag "-b --body <body>" help="Message body (alternative to positional arg)"
+#USAGE arg "[body_arg]" default="" help="Message body (optional, or use -b flag or stdin)"
+#USAGE flag "-b --body <body>" default="" help="Message body (alternative to positional arg)"
 #USAGE flag "-c --cc <cc>" var=#true default="" help="CC recipient (repeatable)"
 #USAGE flag "-a --attach <attach>" var=#true default="" help="File path to attach (repeatable)"
 #USAGE flag "--allow-short" default=#false help="Allow short message bodies (under 50 chars)"
@@ -42,9 +42,16 @@ if [ -z "$TO" ] || [ -z "$SUBJECT" ]; then
   exit 1
 fi
 
-# Body from explicit arg (mise maps both positional [body] and -b flag to usage_body).
-# Treat "-" as "read from stdin" (standard Unix convention).
-BODY="${usage_body:-}"
+# Body from positional arg or -b/--body flag. The positional arg is named
+# `body_arg` so it does not collide with the flag's `usage_body`; defaults on
+# both values clear inherited parent `usage_*` env.
+BODY_ARG="${usage_body_arg:-}"
+BODY_FLAG="${usage_body:-}"
+if [ -n "$BODY_ARG" ] && [ -n "$BODY_FLAG" ]; then
+  echo "Error: Provide message body either positionally or with -b/--body, not both"
+  exit 1
+fi
+BODY="${BODY_FLAG:-$BODY_ARG}"
 [ "$BODY" = "-" ] && BODY=""
 
 # If BODY looks like a file path and the file exists, read its contents

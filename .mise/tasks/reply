@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #MISE description="Reply to an email message"
 #USAGE arg "<id>" help="Message ID to reply to"
-#USAGE arg "[body]" help="Reply body (optional, or use -b flag or stdin)"
-#USAGE flag "-b --body <body>" help="Reply body (alternative to positional arg)"
+#USAGE arg "[body_arg]" default="" help="Reply body (optional, or use -b flag or stdin)"
+#USAGE flag "-b --body <body>" default="" help="Reply body (alternative to positional arg)"
 #USAGE flag "-c --cc <cc>" var=#true default="" help="CC recipient (repeatable)"
 #USAGE flag "-a --attach <attach>" var=#true default="" help="File path to attach (repeatable)"
 #USAGE flag "--allow-short" default=#false help="Allow short reply bodies (under 50 chars)"
@@ -13,7 +13,17 @@ set -euo pipefail
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
 ID="$usage_id"
-BODY="${usage_body:-}"
+
+# Body from positional arg or -b/--body flag. The positional arg is named
+# `body_arg` so it does not collide with the flag's `usage_body`; defaults on
+# both values clear inherited parent `usage_*` env.
+BODY_ARG="${usage_body_arg:-}"
+BODY_FLAG="${usage_body:-}"
+if [ -n "$BODY_ARG" ] && [ -n "$BODY_FLAG" ]; then
+  echo "Error: Provide reply body either positionally or with -b/--body, not both"
+  exit 1
+fi
+BODY="${BODY_FLAG:-$BODY_ARG}"
 
 if [ -z "$ID" ]; then
   echo "Usage: emails reply <id> [body]"

@@ -23,6 +23,27 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
+@test "send: ignores inherited usage_body when body is omitted" {
+  usage_body="This inherited body is long enough to pass validation but must not be used" run emails send user@example.com "Subject"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Message body is required"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
+@test "send: ignores inherited usage_body when only flags are supplied" {
+  usage_body="This inherited body is long enough to pass validation but must not be used" run emails send user@example.com "Subject" --html
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Message body is required"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
+@test "send: rejects body supplied positionally and with --body" {
+  run emails send user@example.com "Subject" "positional body that is long enough to pass validation" -b "flag body that is long enough to pass validation"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"either positionally or with -b/--body"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
 @test "send: rejects short body without --allow-short" {
   run emails send user@example.com "Test Subject" "hi"
   [ "$status" -ne 0 ]
