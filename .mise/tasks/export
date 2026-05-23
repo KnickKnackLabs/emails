@@ -38,7 +38,7 @@ if [ ${#IDS[@]} -eq 0 ] || [ "$ALL" = "true" ]; then
   IDS=()
   while IFS= read -r id; do
     [ -n "$id" ] && IDS+=("$id")
-  done < <(himalaya envelope list -a "$AGENT" -f "$FOLDER" --page-size "$LIMIT" 2>/dev/null | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
+  done < <("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size "$LIMIT" 2>/dev/null | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
 fi
 
 if [ ${#IDS[@]} -eq 0 ]; then
@@ -51,7 +51,7 @@ echo "Exporting ${#IDS[@]} message(s) from $FOLDER to $DEST..."
 EXPORTED=0
 FAILED=0
 for ID in "${IDS[@]}"; do
-  if himalaya message read -a "$AGENT" -f "$FOLDER" "$ID" > "$DEST/$ID.eml" 2>/dev/null; then
+  if "$HIMALAYA_BIN" message read -a "$AGENT" -f "$FOLDER" "$ID" > "$DEST/$ID.eml" 2>/dev/null; then
     ((EXPORTED++))
   else
     echo "  Failed: $ID"

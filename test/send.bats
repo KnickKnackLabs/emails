@@ -82,7 +82,7 @@ setup() {
 
 @test "send: reads body from stdin" {
   local body="This is a message body piped via stdin that is definitely longer than fifty characters."
-  run bash -c "cd '$REPO_DIR' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' PATH='$PATH' mise run -q send user@example.com 'Subject'"
+  run bash -c "cd '$REPO_DIR' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' HIMALAYA='$HIMALAYA' PATH='$PATH' mise run -q send user@example.com 'Subject'"
   [ "$status" -eq 0 ]
 }
 
@@ -115,7 +115,7 @@ setup() {
   export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
   echo "" > "$GIT_CONFIG_GLOBAL"
   local body="This is a message body that is definitely longer than fifty characters for testing."
-  run emails send user@example.com "Subject" "$body"
+  GIT_CONFIG_COUNT=0 run emails send user@example.com "Subject" "$body"
   [ "$status" -ne 0 ]
   [[ "$output" == *"No agent identity"* ]]
 }

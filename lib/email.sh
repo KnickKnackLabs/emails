@@ -5,6 +5,7 @@
 # Usage: source "$MISE_CONFIG_ROOT/lib/email.sh"
 
 export RUST_LOG=error
+HIMALAYA_BIN="${HIMALAYA:-himalaya}"
 
 # Determine current agent from environment or git config
 if [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then

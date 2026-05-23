@@ -10,7 +10,6 @@ bats_require_minimum_version 1.5.0
 load helpers
 
 setup() {
-  export MISE_CONFIG_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   setup_agent
   setup_mock_himalaya
   # Mock himalaya to return empty "-o json" output immediately, so wait's
@@ -27,7 +26,7 @@ setup() {
 # usage_* env vars directly; mise propagates them through to the script.
 
 @test "wait: quoted multi-word --query is passed as a single himalaya arg" {
-  usage_timeout=1 usage_interval=1 run emails wait -- "from groups.io"
+  usage_timeout=1 usage_interval=1 run emails wait "from groups.io"
   [ "$status" -eq 0 ]
   # The mock logs each invocation's args, space-joined, on its own line.
   # 'from groups.io' should appear together as one phrase — not split by a

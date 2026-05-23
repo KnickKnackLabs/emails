@@ -106,7 +106,7 @@ if [ -n "${usage_cc:-}" ]; then
 fi
 
 # Send with GPG signing using MML template.
-himalaya template send -a "$AGENT" << EOF
+"$HIMALAYA_BIN" template send -a "$AGENT" << EOF
 From: $FROM
 To: $TO
 ${CC_HEADER:+$CC_HEADER
