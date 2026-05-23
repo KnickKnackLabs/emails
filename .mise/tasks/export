@@ -61,11 +61,11 @@ EXPORTED=0
 FAILED=0
 for ID in "${IDS[@]}"; do
   if "$HIMALAYA_BIN" message read -a "$AGENT" -f "$FOLDER" "$ID" > "$DEST/$ID.eml" 2>/dev/null; then
-    ((EXPORTED++))
+    EXPORTED=$((EXPORTED + 1))
   else
     echo "  Failed: $ID"
     rm -f "$DEST/$ID.eml"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
   fi
 done
 
