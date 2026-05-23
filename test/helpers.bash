@@ -5,17 +5,13 @@
 #   - Mock himalaya for test isolation (no real IMAP/SMTP)
 #   - Agent identity setup via HIMALAYA_CONFIG override
 
-if [ -z "${MISE_CONFIG_ROOT:-}" ]; then
-  echo "MISE_CONFIG_ROOT not set — run tests via: mise run test" >&2
-  exit 1
+if [ -z "${REPO_DIR:-}" ]; then
+  REPO_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+  export REPO_DIR
 fi
 
 emails() {
-  if [ -z "${CALLER_PWD:-}" ]; then
-    echo "CALLER_PWD not set — wrapper expects tests to set it in setup()" >&2
-    return 1
-  fi
-  cd "$MISE_CONFIG_ROOT" && CALLER_PWD="$CALLER_PWD" mise run -q "$@"
+  cd "$REPO_DIR" && mise run -q "$@"
 }
 export -f emails
 
@@ -24,7 +20,6 @@ export -f emails
 setup_agent() {
   export GIT_AUTHOR_EMAIL="test-agent@ricon.family"
   export BATS_AGENT="test-agent"
-  export CALLER_PWD="${CALLER_PWD:-$BATS_TEST_TMPDIR}"
 
   # Create himalaya config in test tmpdir
   export HIMALAYA_CONFIG="$BATS_TEST_TMPDIR/himalaya/config.toml"
@@ -79,6 +74,7 @@ fi
 MOCK
   chmod +x "$MOCK_BIN/himalaya"
 
+  export HIMALAYA="$MOCK_BIN/himalaya"
   export PATH="$MOCK_BIN:$PATH"
 }
 

@@ -78,7 +78,7 @@ if [ -n "${usage_attach:-}" ]; then
 fi
 
 # Get reply template headers
-REPLY_TEMPLATE=$(himalaya template reply -a "$AGENT" "$ID" "")
+REPLY_TEMPLATE=$("$HIMALAYA_BIN" template reply -a "$AGENT" "$ID" "")
 HEADERS=$(echo "$REPLY_TEMPLATE" | sed '/^$/q')
 
 # Check that the reply template has a recipient
@@ -105,6 +105,6 @@ fi
   echo "<#/part>"
   echo "$ATTACH_MML"
   echo "<#/multipart>"
-} | himalaya template send -a "$AGENT"
+} | "$HIMALAYA_BIN" template send -a "$AGENT"
 
 echo "Reply sent"

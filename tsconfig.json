@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "emails",
+    "paths": {
+      "emails/jsx-runtime": ["./src/jsx-runtime.ts"],
+      "emails/jsx-dev-runtime": ["./src/jsx-dev-runtime.ts"],
+      "emails": ["./src/components/index.ts"],
+      "emails/*": ["./*"]
+    }
+  }
+}
