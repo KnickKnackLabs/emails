@@ -206,7 +206,7 @@ for F in "${FOLDERS[@]}"; do
   COUNT="${COUNT:-0}"
 
   if [ "$COUNT" = "0" ]; then
-    printf "%-10s %6s  (%s messages)\n" "$F:" "0KB" "0"
+    printf "%-10s %6s  (%s messages)\n" "$F:" "0KB" "0"  # codebase:ignore gum-table — header of a tree output, not a table
     continue
   fi
 
@@ -214,17 +214,17 @@ for F in "${FOLDERS[@]}"; do
   TOTAL=$(echo "$ID_SIZES" | awk '{sum += $2} END {print sum+0}')
   TOTAL_DISPLAY=$(format_size "$TOTAL")
 
-  printf "%-10s %6s  (%s messages)\n" "$F:" "$TOTAL_DISPLAY" "$COUNT"
+  printf "%-10s %6s  (%s messages)\n" "$F:" "$TOTAL_DISPLAY" "$COUNT"  # codebase:ignore gum-table — header of a tree output, not a table
 
   if [ -n "$GROUP_BY" ]; then
     echo "$RESULT" | show_grouped_sizes "$GROUP_BY" "$TOP" | while IFS=$'\t' read -r S GROUP_COUNT LABEL; do
       [ -z "$S" ] && continue
-      printf "           └ %-6s %4s  %s\n" "$(format_size "$S")" "$GROUP_COUNT" "$LABEL"
+      printf "           └ %-6s %4s  %s\n" "$(format_size "$S")" "$GROUP_COUNT" "$LABEL"  # codebase:ignore gum-table — hierarchical tree, not tabular
     done
   else
     echo "$ID_SIZES" | sort -k2 -rn | head -"$TOP" | while read -r ID S; do
       [ -z "$ID" ] && continue
-      printf "           └ #%-4s %s\n" "$ID" "$(format_size "$S")"
+      printf "           └ #%-4s %s\n" "$ID" "$(format_size "$S")"  # codebase:ignore gum-table — hierarchical tree, not tabular
     done
   fi
 done

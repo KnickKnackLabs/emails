@@ -72,9 +72,10 @@ if [ "$HAS_ATTACHMENT" = "true" ]; then
     DOWNLOADS_DIR="${HOME}/agents/${AGENT}/downloads"
     mkdir -p "$DOWNLOADS_DIR"
 
-    BEFORE=$(ls -1 "$DOWNLOADS_DIR" 2>/dev/null || true)
+    # mkdir -p ran above so the dir exists; ls should not fail here
+    BEFORE=$(ls -1 "$DOWNLOADS_DIR")
     "$HIMALAYA_BIN" attachment download -a "$AGENT" -f "$FOLDER" -o plain "$ID" >/dev/null 2>&1
-    AFTER=$(ls -1 "$DOWNLOADS_DIR" 2>/dev/null || true)
+    AFTER=$(ls -1 "$DOWNLOADS_DIR")
     NEW_FILES=$(comm -13 <(echo "$BEFORE" | sort) <(echo "$AFTER" | sort))
 
     FOUND=0

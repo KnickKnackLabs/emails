@@ -32,7 +32,8 @@ fi
 
 # Get password: env var > secrets tool > error
 if [ -z "${EMAIL_PASSWORD:-}" ]; then
-  EMAIL_PASSWORD=$(secrets get "$AGENT/email-password" 2>/dev/null || true)
+  # Empty result (missing key) is expected; we fall through to the empty-check below.
+  EMAIL_PASSWORD=$(secrets get "$AGENT/email-password" 2>/dev/null) || EMAIL_PASSWORD=""
 fi
 
 if [ -z "$EMAIL_PASSWORD" ]; then
