@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #MISE description="Inspect email message structure and metadata"
 #USAGE arg "<id>" help="Message ID to inspect"
-#USAGE flag "-f --folder <folder>" help="Folder to inspect from (default: INBOX)"
+#USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to inspect from (default: INBOX)"
 
-set -e
+set -euo pipefail
 
-ID="${usage_id:-$1}"
+ID="$usage_id"
 FOLDER="${usage_folder:-INBOX}"
 
 if [ -z "$ID" ]; then

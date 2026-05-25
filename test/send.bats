@@ -23,6 +23,27 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
+@test "send: ignores inherited usage_body when body is omitted" {
+  usage_body="This inherited body is long enough to pass validation but must not be used" run emails send user@example.com "Subject"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Message body is required"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
+@test "send: ignores inherited usage_body when only flags are supplied" {
+  usage_body="This inherited body is long enough to pass validation but must not be used" run emails send user@example.com "Subject" --html
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Message body is required"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
+@test "send: rejects body supplied positionally and with --body" {
+  run emails send user@example.com "Subject" "positional body that is long enough to pass validation" -b "flag body that is long enough to pass validation"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"either positionally or with -b/--body"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
 @test "send: rejects short body without --allow-short" {
   run emails send user@example.com "Test Subject" "hi"
   [ "$status" -ne 0 ]
@@ -82,7 +103,7 @@ setup() {
 
 @test "send: reads body from stdin" {
   local body="This is a message body piped via stdin that is definitely longer than fifty characters."
-  run bash -c "cd '$REPO_DIR' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' PATH='$PATH' mise run -q send user@example.com 'Subject'"
+  run bash -c "cd '$REPO_DIR' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' HIMALAYA='$HIMALAYA' PATH='$PATH' mise run -q send user@example.com 'Subject'"
   [ "$status" -eq 0 ]
 }
 
@@ -115,7 +136,7 @@ setup() {
   export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
   echo "" > "$GIT_CONFIG_GLOBAL"
   local body="This is a message body that is definitely longer than fifty characters for testing."
-  run emails send user@example.com "Subject" "$body"
+  GIT_CONFIG_COUNT=0 run emails send user@example.com "Subject" "$body"
   [ "$status" -ne 0 ]
   [[ "$output" == *"No agent identity"* ]]
 }

@@ -32,7 +32,7 @@ EOF
   export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
   echo "" > "$GIT_CONFIG_GLOBAL"
 
-  run bash -c 'source "$REPO_DIR/lib/email.sh"'
+  GIT_CONFIG_COUNT=0 run bash -c 'source "$REPO_DIR/lib/email.sh"'
   [ "$status" -ne 0 ]
   [[ "$output" == *"No agent identity"* ]]
 }
@@ -41,7 +41,7 @@ EOF
   export GIT_AUTHOR_EMAIL="myagent@ricon.family"
   rm -f "$HIMALAYA_CONFIG"
 
-  run bash -c 'source "$REPO_DIR/lib/email.sh"'
+  GIT_CONFIG_COUNT=0 run bash -c 'source "$REPO_DIR/lib/email.sh"'
   [ "$status" -ne 0 ]
   [[ "$output" == *"not configured"* ]]
 }
@@ -54,7 +54,7 @@ EOF
 default = true
 EOF
 
-  run bash -c 'source "$REPO_DIR/lib/email.sh"'
+  GIT_CONFIG_COUNT=0 run bash -c 'source "$REPO_DIR/lib/email.sh"'
   [ "$status" -ne 0 ]
   [[ "$output" == *"not configured"* ]]
 }

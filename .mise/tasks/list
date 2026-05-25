@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #MISE description="List email messages"
-#USAGE flag "-n --limit <limit>" help="Number of messages to show (default: 10)"
-#USAGE flag "-f --folder <folder>" help="Folder to list (default: INBOX)"
-#USAGE flag "-p --page <page>" help="Page number, starting from 1 (default: 1)"
-#USAGE flag "--unread" help="Only show unread messages"
-#USAGE flag "--count" help="Just output the count (useful for scripts)"
+#USAGE flag "-n --limit <limit>" default="10" help="Number of messages to show (default: 10)"
+#USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to list (default: INBOX)"
+#USAGE flag "-p --page <page>" default="1" help="Page number, starting from 1 (default: 1)"
+#USAGE flag "--unread" default=#false help="Only show unread messages"
+#USAGE flag "--count" default=#false help="Just output the count (useful for scripts)"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
@@ -23,13 +23,13 @@ if [ "$UNREAD" = "true" ]; then
 fi
 
 # Fetch one extra to detect if there are more messages beyond the limit
-OUTPUT=$(himalaya envelope list -a "$AGENT" -f "$FOLDER" -p "$PAGE" -w 120 --page-size "$((LIMIT + 1))" $QUERY)
+OUTPUT=$("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" -p "$PAGE" -w 120 --page-size "$((LIMIT + 1))" $QUERY)
 
 # Count data rows (skip 3 header rows: blank + column headers + separator)
 DATA_ROWS=$(echo "$OUTPUT" | tail -n +4 | wc -l | tr -d ' ')
 
 if [ "$COUNT_ONLY" = "true" ]; then
-  COUNT_OUTPUT=$(himalaya envelope list -a "$AGENT" -f "$FOLDER" -w 120 --page-size 10000 $QUERY)
+  COUNT_OUTPUT=$("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" -w 120 --page-size 10000 $QUERY)
   echo "$COUNT_OUTPUT" | tail -n +4 | wc -l | tr -d ' '
 else
   echo "$OUTPUT" | head -$((LIMIT + 3))

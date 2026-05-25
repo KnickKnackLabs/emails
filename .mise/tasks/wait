@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #MISE description="Wait for new email to arrive"
-#USAGE flag "-f --folder <folder>" help="Folder to watch (default: INBOX)"
-#USAGE flag "-n --count <n>" help="Wait for at least N new messages (default: 1)"
-#USAGE flag "--timeout <duration>" help="Max wait time in seconds (default: 600)"
-#USAGE flag "--interval <seconds>" help="Poll interval in seconds (default: 30)"
-#USAGE arg "[query...]" var=#true help="Optional himalaya query filter (e.g. 'from groups.io')"
+#USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to watch (default: INBOX)"
+#USAGE flag "-n --count <n>" default="1" help="Wait for at least N new messages (default: 1)"
+#USAGE flag "--timeout <duration>" default="600" help="Max wait time in seconds (default: 600)"
+#USAGE flag "--interval <seconds>" default="30" help="Poll interval in seconds (default: 30)"
+#USAGE arg "[query]" var=#true default="" help="Optional himalaya query filter (e.g. 'from groups.io')"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
@@ -17,14 +17,23 @@ TIMEOUT="${usage_timeout:-600}"
 
 # Parse optional query (variadic args)
 QUERY_ARGS=()
-if [ -n "${usage_query:-}" ]; then
-  read -ra QUERY_ARGS <<< "$usage_query"
-fi
+QUERY_COUNT=0
+while IFS= read -r arg; do
+  if [ -n "$arg" ]; then
+    QUERY_ARGS+=("$arg")
+    QUERY_COUNT=$((QUERY_COUNT + 1))
+  fi
+done < <(printf '%s' "${usage_query:-}" | xargs printf '%s\n')
 
 # Fetch current envelope IDs from the folder
 get_ids() {
-  himalaya envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 -o json "${QUERY_ARGS[@]}" 2>/dev/null \
-    | jq -r '.[].id'
+  if [ "$QUERY_COUNT" -gt 0 ]; then
+    "$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 -o json "${QUERY_ARGS[@]}" 2>/dev/null \
+      | jq -r '.[].id'
+  else
+    "$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 -o json 2>/dev/null \
+      | jq -r '.[].id'
+  fi
 }
 
 debug() { [ "${DEBUG:-}" = "1" ] && echo "[debug] $*" >&2 || true; }

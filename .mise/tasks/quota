@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Show email storage quota usage"
 
-set -e
+set -euo pipefail
 
 NEED_IMAP=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
 

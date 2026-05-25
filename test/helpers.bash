@@ -74,6 +74,7 @@ fi
 MOCK
   chmod +x "$MOCK_BIN/himalaya"
 
+  export HIMALAYA="$MOCK_BIN/himalaya"
   export PATH="$MOCK_BIN:$PATH"
 }
 
