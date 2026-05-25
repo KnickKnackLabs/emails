@@ -80,6 +80,15 @@ MOCK
   [[ "$output" != *"[Triangle Therapists]"* ]]
 }
 
+@test "sizes: all-folder default works under set -u" {
+  run emails sizes
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"INBOX:"* ]]
+  [[ "$output" == *"Sent:"* ]]
+  [[ "$output" == *"Trash:"* ]]
+  [[ "$output" == *"Archive:"* ]]
+}
+
 @test "sizes: can group by subject prefix" {
   run emails sizes -f INBOX --group-by subject-prefix --top 3
   [ "$status" -eq 0 ]

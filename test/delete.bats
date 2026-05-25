@@ -21,6 +21,13 @@ setup() {
   [[ "$output" == *"IDs must be numeric"* ]]
 }
 
+@test "delete: ignores inherited usage vars when args are omitted" {
+  usage_ids=42 usage_all=true run emails delete
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Usage"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
 @test "delete: moves message to Trash by default" {
   run emails delete 42
   [ "$status" -eq 0 ]

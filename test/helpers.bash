@@ -60,12 +60,22 @@ setup_mock_himalaya() {
 
   # Track calls for assertions
   export MOCK_HIMALAYA_CALLS="$BATS_TEST_TMPDIR/himalaya-calls.log"
+  export MOCK_HIMALAYA_ARGV_CALLS="$BATS_TEST_TMPDIR/himalaya-argv-calls.log"
   : > "$MOCK_HIMALAYA_CALLS"
+  : > "$MOCK_HIMALAYA_ARGV_CALLS"
 
   cat > "$MOCK_BIN/himalaya" <<'MOCK'
 #!/usr/bin/env bash
-# Log the call
+# Log the call (space-joined for existing substring assertions, and
+# length-prefixed argv for tests that need argument-boundary checks).
 echo "$@" >> "$MOCK_HIMALAYA_CALLS"
+{
+  printf 'argc=%s' "$#"
+  for arg in "$@"; do
+    printf '\t%s:%s' "${#arg}" "$arg"
+  done
+  printf '\n'
+} >> "$MOCK_HIMALAYA_ARGV_CALLS"
 
 # Read canned response if set
 if [ -n "${MOCK_HIMALAYA_RESPONSE:-}" ] && [ -f "$MOCK_HIMALAYA_RESPONSE" ]; then
