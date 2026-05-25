@@ -15,7 +15,9 @@ COUNT="${usage_count:-1}"
 INTERVAL="${usage_interval:-30}"
 TIMEOUT="${usage_timeout:-600}"
 
-# Parse optional query (variadic args)
+# Parse optional query (variadic args) — xargs respects mise's shell-quote
+# wrapping so a query like "from groups.io" stays as one arg. read -ra
+# would split it on whitespace.
 QUERY_ARGS=()
 QUERY_COUNT=0
 while IFS= read -r arg; do
