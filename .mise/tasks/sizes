@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #MISE description="Show per-folder email sizes and largest messages"
-#USAGE flag "-f --folder <folder>" help="Show details for a specific folder only"
-#USAGE flag "--top <n>" help="Number of largest messages/groups to show per folder (default: 5)"
-#USAGE flag "--group-by <field>" help="Group by sender or subject-prefix"
+#USAGE flag "-f --folder <folder>" default="" help="Show details for a specific folder only"
+#USAGE flag "--top <n>" default="5" help="Number of largest messages/groups to show per folder (default: 5)"
+#USAGE flag "--group-by <field>" default="" help="Group by sender or subject-prefix"
 
-set -e
+set -euo pipefail
 
 FOLDER="${usage_folder:-}"
 TOP="${usage_top:-5}"
@@ -230,7 +230,7 @@ for F in "${FOLDERS[@]}"; do
 done
 
 # Show quota if multi-folder
-if [ -z "$usage_folder" ]; then
+if [ -z "$FOLDER" ]; then
   QUOTA_OUTPUT=$({
     sleep 0.3
     echo "a LOGIN ${AGENT}@ricon.family $PASS"
@@ -240,8 +240,7 @@ if [ -z "$usage_folder" ]; then
     echo "c LOGOUT"
   } | openssl s_client -connect mail.ricon.family:993 -quiet 2>/dev/null)
 
-  QUOTA_LINE=$(echo "$QUOTA_OUTPUT" | grep "^\* QUOTA")
-  if [ -n "$QUOTA_LINE" ]; then
+  if QUOTA_LINE=$(echo "$QUOTA_OUTPUT" | grep "^\* QUOTA"); then
     USED_KB=$(echo "$QUOTA_LINE" | grep -oE 'STORAGE [0-9]+ [0-9]+' | awk '{print $2}')
     LIMIT_KB=$(echo "$QUOTA_LINE" | grep -oE 'STORAGE [0-9]+ [0-9]+' | awk '{print $3}')
     USED_MB=$((USED_KB / 1024))

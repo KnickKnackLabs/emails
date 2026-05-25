@@ -19,14 +19,11 @@ setup() {
 }
 
 # wait's contract: --timeout 0 means "poll forever", --timeout 1 + --interval 1
-# yields one snapshot+poll cycle then exit (~1s wall time).
-#
-# We can't pass --timeout / --interval on the CLI here — mise has its own
-# --timeout flag and intercepts it before the task sees it. So we set the
-# usage_* env vars directly; mise propagates them through to the script.
+# yields one snapshot+poll cycle then exit (~1s wall time). Pass these through
+# the real CLI; explicit #USAGE defaults intentionally ignore inherited usage_*.
 
 @test "wait: quoted multi-word --query is passed as a single himalaya arg" {
-  usage_timeout=1 usage_interval=1 run emails wait "from groups.io"
+  run emails wait --timeout 1 --interval 1 "from groups.io"
   [ "$status" -eq 0 ]
   # The argv log records argument boundaries as length-prefixed fields. The
   # query must be one 14-byte arg, not two args (`from` + `groups.io`).
@@ -37,7 +34,7 @@ setup() {
 }
 
 @test "wait: multiple query args preserve quotes and metacharacters literally" {
-  usage_timeout=1 usage_interval=1 run emails wait "from groups.io" 'subject "hello";rm'
+  run emails wait --timeout 1 --interval 1 "from groups.io" 'subject "hello";rm'
   [ "$status" -eq 0 ]
   run cat "$MOCK_HIMALAYA_ARGV_CALLS"
   [[ "$output" == *"argc=12"* ]]
@@ -46,7 +43,7 @@ setup() {
 }
 
 @test "wait: empty --query omits query args from himalaya call" {
-  usage_timeout=1 usage_interval=1 run emails wait
+  run emails wait --timeout 1 --interval 1
   [ "$status" -eq 0 ]
   run cat "$MOCK_HIMALAYA_ARGV_CALLS"
   [[ "$output" == *"argc=10"* ]]

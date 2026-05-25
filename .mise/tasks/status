@@ -2,9 +2,9 @@
 #MISE description="Check email (himalaya) setup status for an agent"
 #USAGE arg "<agent>" help="Agent name (e.g., quick, brownie)"
 
-set -e
+set -euo pipefail
 
-AGENT="${1:?Usage: emails status <agent>}"
+AGENT="$usage_agent"
 EMAIL="${AGENT}@ricon.family"
 CONFIG_FILE="${HOME}/.config/himalaya/config.toml"
 

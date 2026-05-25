@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #MISE description="List email messages"
-#USAGE flag "-n --limit <limit>" help="Number of messages to show (default: 10)"
-#USAGE flag "-f --folder <folder>" help="Folder to list (default: INBOX)"
-#USAGE flag "-p --page <page>" help="Page number, starting from 1 (default: 1)"
-#USAGE flag "--unread" help="Only show unread messages"
-#USAGE flag "--count" help="Just output the count (useful for scripts)"
+#USAGE flag "-n --limit <limit>" default="10" help="Number of messages to show (default: 10)"
+#USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to list (default: INBOX)"
+#USAGE flag "-p --page <page>" default="1" help="Page number, starting from 1 (default: 1)"
+#USAGE flag "--unread" default=#false help="Only show unread messages"
+#USAGE flag "--count" default=#false help="Just output the count (useful for scripts)"
 
-set -e
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
