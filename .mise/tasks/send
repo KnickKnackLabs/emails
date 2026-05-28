@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #MISE description="Send a GPG-signed email"
-#USAGE arg "<to>" help="Recipient email address"
-#USAGE arg "<subject>" help="Email subject"
+#USAGE arg "[to_arg]" default="" help="Recipient email address (or use --to)"
+#USAGE arg "[subject_arg]" default="" help="Email subject (or use --subject)"
 #USAGE arg "[body_arg]" default="" help="Message body (optional, or use -b flag or stdin)"
+#USAGE flag "--to <to>" default="" help="Recipient email address (preferred over positional)"
+#USAGE flag "--subject <subject>" default="" help="Email subject (preferred over positional)"
 #USAGE flag "-b --body <body>" default="" help="Message body (alternative to positional arg)"
+#USAGE flag "--file <file>" default="" help="JSON file with to/subject/body/cc fields"
 #USAGE flag "-c --cc <cc>" var=#true default="" help="CC recipient (repeatable)"
 #USAGE flag "-a --attach <attach>" var=#true default="" help="File path to attach (repeatable)"
 #USAGE flag "--allow-short" default=#false help="Allow short message bodies (under 50 chars)"
@@ -13,45 +16,73 @@ set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
-TO="$usage_to"
-SUBJECT="$usage_subject"
+# Resolve TO and SUBJECT: explicit flags override positional args
+TO="${usage_to:-${usage_to_arg:-}}"
+SUBJECT="${usage_subject:-${usage_subject_arg:-}}"
+
+# --file: load TO/SUBJECT/BODY/CC from a JSON spec
+FILE_BODY=""
+FILE_CC_LINES=""
+if [ -n "${usage_file:-}" ]; then
+  if [ ! -f "$usage_file" ]; then
+    echo "Error: File not found: $usage_file"
+    exit 1
+  fi
+  _file_to=$(jq -r '.to // empty' "$usage_file")
+  _file_subject=$(jq -r '.subject // empty' "$usage_file")
+  FILE_BODY=$(jq -r '.body // empty' "$usage_file")
+  FILE_CC_LINES=$(jq -r 'if .cc then (.cc | if type == "array" then .[] else . end) else empty end' "$usage_file" 2>/dev/null || true)
+  [ -n "$_file_to" ] && TO="$_file_to"
+  [ -n "$_file_subject" ] && SUBJECT="$_file_subject"
+fi
 
 if [ -z "$TO" ] || [ -z "$SUBJECT" ]; then
-  echo "Usage: emails send <to> <subject> [body]"
+  echo "Usage: emails send --to <to> --subject <subject> [body options]"
   echo ""
-  echo "Body can be provided exactly one way:"
-  echo "  emails send admin@ricon.family 'Subject' 'inline body'"
-  echo "  emails send admin@ricon.family 'Subject' -b 'flag body'"
-  echo "  emails send admin@ricon.family 'Subject' -b /path/to/file.txt"
-  echo "  cat body.txt | emails send admin@ricon.family 'Subject'"
+  echo "Preferred (explicit flags — safe for agents):"
+  echo "  emails send --to admin@ricon.family --subject 'Update' -b body.txt"
+  echo "  emails send --to admin@ricon.family --subject 'Update' < body.txt"
+  echo "  emails send --file email.json"
   echo ""
-  echo "HTML email:"
-  echo "  emails send admin@ricon.family 'Subject' --html -b /path/to/file.html"
-  echo "  cat body.html | emails send admin@ricon.family 'Subject' --html"
+  echo "Positional form (compatible, prefer flags for new scripts):"
+  echo "  emails send admin@ricon.family 'Update' 'inline body'"
   echo ""
-  echo "Attachments:"
   echo "CC:"
-  echo "  emails send admin@ricon.family 'Subject' 'body' -c other@ricon.family"
-  echo "  emails send admin@ricon.family 'Subject' 'body' -c one@x.com -c two@x.com"
+  echo "  emails send --to admin@ricon.family --cc other@ricon.family --subject 'Update' -b body.txt"
   echo ""
-  echo "Attachments:"
-  echo "  emails send admin@ricon.family 'Subject' 'body' -a /path/to/file.pdf"
-  echo "  emails send admin@ricon.family 'Subject' 'body' -a one.pdf -a two.pdf"
+  echo "HTML:"
+  echo "  emails send --to admin@ricon.family --subject 'Update' --html -b file.html"
+  echo ""
+  echo "JSON file (to/subject/body/cc fields):"
+  echo "  emails send --file email.json"
   echo ""
   echo "Messages are GPG-signed automatically."
   exit 1
 fi
 
-# Body from positional arg or -b/--body flag. The positional arg is named
-# `body_arg` so it does not collide with the flag's `usage_body`; defaults on
-# both values clear inherited parent `usage_*` env.
+# GHL safety check: subject that looks like an email address means two recipients
+# were passed positionally (the original GHL referral incident).
+if echo "$SUBJECT" | grep -qE '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'; then
+  echo "Error: subject looks like an email address: '$SUBJECT'"
+  echo "Did you accidentally pass two recipients positionally?"
+  echo "Use --cc for additional recipients:"
+  echo "  emails send --to $TO --cc $SUBJECT --subject 'Your subject here' ..."
+  exit 1
+fi
+
+# Body resolution: --file body > -b flag > positional arg.
+# --file body and -b/positional are mutually exclusive.
 BODY_ARG="${usage_body_arg:-}"
 BODY_FLAG="${usage_body:-}"
+if [ -n "$FILE_BODY" ] && { [ -n "$BODY_FLAG" ] || [ -n "$BODY_ARG" ]; }; then
+  echo "Error: --file already provides a body; do not also use -b or a positional body"
+  exit 1
+fi
 if [ -n "$BODY_ARG" ] && [ -n "$BODY_FLAG" ]; then
   echo "Error: Provide message body either positionally or with -b/--body, not both"
   exit 1
 fi
-BODY="${BODY_FLAG:-$BODY_ARG}"
+BODY="${FILE_BODY:-${BODY_FLAG:-$BODY_ARG}}"
 [ "$BODY" = "-" ] && BODY=""
 
 # If BODY looks like a file path and the file exists, read its contents
@@ -114,11 +145,18 @@ if [ "$ATTACH_COUNT" -gt 0 ]; then
   done
 fi
 
-# Build CC header
+# Build CC header: combine addresses from --file and --cc flags
 CC_HEADER=""
 CC_ADDRS=""
 CCS=()
 CC_COUNT=0
+
+if [ -n "$FILE_CC_LINES" ]; then
+  while IFS= read -r cc; do
+    [ -n "$cc" ] && CCS+=("$cc") && CC_COUNT=$((CC_COUNT + 1))
+  done <<< "$FILE_CC_LINES"
+fi
+
 while IFS= read -r cc; do
   if [ -n "$cc" ]; then
     CCS+=("$cc")

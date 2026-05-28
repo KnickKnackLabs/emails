@@ -101,3 +101,44 @@ HTML
   [[ "$output" == *"alice@example.com"* ]]
   [[ "$output" == *"bob@example.com"* ]]
 }
+
+@test "send: --to and --subject flags deliver message" {
+  local body_file="$BATS_TEST_TMPDIR/body.txt"
+  echo "This message uses explicit --to and --subject flags instead of positional arguments for safety." > "$body_file"
+
+  emails send \
+    --to test-agent@ricon.family \
+    --subject "Explicit flags integration test" \
+    -b "$body_file"
+
+  run himalaya -c "$HIMALAYA_CONFIG" envelope list -a "$AGENT" --page-size 100 2>/dev/null
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Explicit flags integration test"* ]]
+}
+
+@test "send: rejects two recipient-looking positional args (GHL shape)" {
+  run emails send alice@example.com candi@example.com \
+    "This body is long enough but should never be sent because the subject is an email."
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"subject looks like an email address"* ]]
+}
+
+@test "send: --file JSON delivers message with correct headers" {
+  local spec="$BATS_TEST_TMPDIR/email.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "test-agent@ricon.family",
+  "subject": "File spec integration test",
+  "body": "This message was composed from a JSON file spec to test the structured input path end to end.",
+  "cc": ["cc-recipient@example.com"]
+}
+JSON
+
+  emails send --file "$spec"
+
+  local sent_msg
+  sent_msg=$(find "$MAILDIR_ROOT/Sent" -type f | head -1)
+  run cat "$sent_msg"
+  [[ "$output" == *"File spec integration test"* ]]
+  [[ "$output" == *"cc-recipient@example.com"* ]]
+}

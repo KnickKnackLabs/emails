@@ -128,6 +128,93 @@ setup() {
 }
 
 # ============================================================================
+# GHL safety check
+# ============================================================================
+
+@test "send: rejects subject that looks like an email address" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send user@example.com candi@example.com "$body"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"subject looks like an email address"* ]]
+  [[ "$output" == *"--cc"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
+# ============================================================================
+# Explicit --to / --subject flags
+# ============================================================================
+
+@test "send: --to and --subject flags work" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send --to user@example.com --subject "Explicit flags test" -b "$body"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to user@example.com"* ]]
+  assert_himalaya_called "template send"
+}
+
+@test "send: --to and --subject flags override positionals" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send positional@example.com "Positional subject" --to flag@example.com --subject "Flag subject" "$body"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to flag@example.com"* ]]
+}
+
+# ============================================================================
+# --file structured input
+# ============================================================================
+
+@test "send: --file JSON input sends message" {
+  local spec="$BATS_TEST_TMPDIR/email.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "user@example.com",
+  "subject": "File spec test",
+  "body": "This is the message body loaded from the JSON file spec for structured agent email sending."
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to user@example.com"* ]]
+  assert_himalaya_called "template send"
+}
+
+@test "send: --file JSON with cc array" {
+  local spec="$BATS_TEST_TMPDIR/email-cc.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "user@example.com",
+  "subject": "CC file test",
+  "body": "This is the message body loaded from the JSON file spec for CC testing in structured input.",
+  "cc": ["alice@example.com", "bob@example.com"]
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cc:"* ]]
+  [[ "$output" == *"alice@example.com"* ]]
+}
+
+@test "send: --file missing file errors" {
+  run emails send --file /nonexistent/email.json
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"File not found"* ]]
+}
+
+@test "send: --file body and -b flag are mutually exclusive" {
+  local spec="$BATS_TEST_TMPDIR/email-body.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "user@example.com",
+  "subject": "Conflict test",
+  "body": "Body from file that is long enough to pass the minimum body length validation check."
+}
+JSON
+  run emails send --file "$spec" -b "extra body"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"already provides a body"* ]]
+}
+
+# ============================================================================
 # Identity
 # ============================================================================
 
