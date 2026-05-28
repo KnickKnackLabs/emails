@@ -120,6 +120,26 @@ maildir_count() {
   echo "$count"
 }
 
+# Create a mock gpg binary that returns canned output.
+# Write the desired gpg stderr output to $GPG_MOCK_RESPONSE_FILE before calling emails read.
+# If $GPG_MOCK_RESPONSE_FILE is absent or empty, the mock exits 2 (no OpenPGP data).
+setup_mock_gpg() {
+  local mock_bin="$BATS_TEST_TMPDIR/mock-bin"
+  mkdir -p "$mock_bin"
+  export GPG_MOCK_RESPONSE_FILE="$BATS_TEST_TMPDIR/gpg-mock-response"
+  cat > "$mock_bin/gpg" << 'MOCK'
+#!/usr/bin/env bash
+if [ -f "$GPG_MOCK_RESPONSE_FILE" ] && [ -s "$GPG_MOCK_RESPONSE_FILE" ]; then
+  cat "$GPG_MOCK_RESPONSE_FILE" >&2
+  exit 0
+fi
+echo "gpg: no valid OpenPGP data found" >&2
+exit 2
+MOCK
+  chmod +x "$mock_bin/gpg"
+  export PATH="$mock_bin:$PATH"
+}
+
 # Get the envelope ID of the most recent message via himalaya
 latest_envelope_id() {
   local folder="${1:-INBOX}"

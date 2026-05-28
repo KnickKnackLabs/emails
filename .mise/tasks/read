@@ -28,7 +28,14 @@ if "$HIMALAYA_BIN" message export --full -a "$AGENT" -f "$FOLDER" -d "$TMPDIR/ms
 
   if [ $GPG_EXIT -eq 0 ] && echo "$GPG_OUTPUT" | grep -q "Good signature"; then
     SIGNER=$(echo "$GPG_OUTPUT" | grep "Good signature from" | sed 's/.*Good signature from "\(.*\)".*/\1/')
-    SIG_TAG="(✓ Signed by ${SIGNER})"
+    SIGNER_EMAIL=$(echo "$SIGNER" | grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | head -1)
+    FROM_HEADER=$(grep -m1 -i "^From:" "$TMPDIR/msg.eml" 2>/dev/null || true)
+    FROM_EMAIL=$(echo "$FROM_HEADER" | grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | head -1)
+    if [ -n "$SIGNER_EMAIL" ] && [ -n "$FROM_EMAIL" ] && [ "$SIGNER_EMAIL" != "$FROM_EMAIL" ]; then
+      SIG_TAG="(⚠ Signed by ${SIGNER} — sender mismatch)"
+    else
+      SIG_TAG="(✓ Signed by ${SIGNER})"
+    fi
   elif echo "$GPG_OUTPUT" | grep -q "BAD signature"; then
     SIG_TAG="(✗ Bad signature)"
   elif echo "$GPG_OUTPUT" | grep -q "no valid OpenPGP data"; then
