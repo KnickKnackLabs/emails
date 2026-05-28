@@ -33,6 +33,8 @@ TSX
   [[ "$output" == *"<h1"* ]]
   [[ "$output" == *"Hello"* ]]
   [[ "$output" == *"World"* ]]
+  [[ "$output" == *'<div style="max-width:640px;'* ]]
+  [[ "$output" != *"max-width: 640px"* ]]
 }
 
 @test "compose: passes arguments to TSX file" {

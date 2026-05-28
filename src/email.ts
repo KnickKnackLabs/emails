@@ -24,19 +24,11 @@ export function email({ body, format = "html" }: EmailOptions): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<style>
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #1a1a1a;
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 20px;
-    line-height: 1.5;
-  }
-</style>
 </head>
-<body>
+<body style="margin:0; padding:0;">
+<div style="max-width:640px; margin:0 auto; padding:20px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#1a1a1a; line-height:1.5;">
 ${renderedBody}
+</div>
 </body>
 </html>`;
 }
