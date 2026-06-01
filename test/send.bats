@@ -150,6 +150,10 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to user@example.com"* ]]
   assert_himalaya_called "template send"
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: user@example.com"* ]]
+  [[ "$mml" == *"Subject: Explicit flags test"* ]]
+  [[ "$mml" == *"$body"* ]]
 }
 
 @test "send: --to and --subject flags override positionals" {
@@ -157,6 +161,17 @@ setup() {
   run emails send positional@example.com "Positional subject" --to flag@example.com --subject "Flag subject" "$body"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to flag@example.com"* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: flag@example.com"* ]]
+  [[ "$mml" == *"Subject: Flag subject"* ]]
+}
+
+@test "send: explicit --subject may look like an email address" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send --to user@example.com --subject candi@example.com -b "$body"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to user@example.com"* ]]
+  assert_himalaya_called "template send"
 }
 
 # ============================================================================
@@ -176,6 +191,10 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to user@example.com"* ]]
   assert_himalaya_called "template send"
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: user@example.com"* ]]
+  [[ "$mml" == *"Subject: File spec test"* ]]
+  [[ "$mml" == *"structured agent email sending"* ]]
 }
 
 @test "send: --file JSON with cc array" {
@@ -192,6 +211,74 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *"cc:"* ]]
   [[ "$output" == *"alice@example.com"* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"Cc: alice@example.com, bob@example.com"* ]]
+}
+
+@test "send: --file subject may look like an email address" {
+  local spec="$BATS_TEST_TMPDIR/email-subject.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "user@example.com",
+  "subject": "candi@example.com",
+  "body": "This is the message body loaded from the JSON file spec for structured agent email sending."
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to user@example.com"* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"Subject: candi@example.com"* ]]
+}
+
+@test "send: flags override --file to and subject" {
+  local spec="$BATS_TEST_TMPDIR/email-override.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "file@example.com",
+  "subject": "File subject",
+  "body": "This is the message body loaded from the JSON file spec for structured agent email sending."
+}
+JSON
+  run emails send --file "$spec" --to flag@example.com --subject "Flag subject"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to flag@example.com"* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: flag@example.com"* ]]
+  [[ "$mml" == *"Subject: Flag subject"* ]]
+  [[ "$mml" != *"To: file@example.com"* ]]
+  [[ "$mml" != *"Subject: File subject"* ]]
+}
+
+@test "send: --file rejects non-string body field" {
+  local spec="$BATS_TEST_TMPDIR/email-bad-body.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "user@example.com",
+  "subject": "Bad body field",
+  "body": ["not", "a", "string"]
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid --file body field"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
+@test "send: --file rejects non-string cc entries" {
+  local spec="$BATS_TEST_TMPDIR/email-bad-cc.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "user@example.com",
+  "subject": "Bad cc field",
+  "body": "This is the message body loaded from the JSON file spec for structured agent email sending.",
+  "cc": ["alice@example.com", 42]
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid --file cc field"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
 }
 
 @test "send: --file missing file errors" {

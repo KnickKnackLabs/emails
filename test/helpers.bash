@@ -61,8 +61,10 @@ setup_mock_himalaya() {
   # Track calls for assertions
   export MOCK_HIMALAYA_CALLS="$BATS_TEST_TMPDIR/himalaya-calls.log"
   export MOCK_HIMALAYA_ARGV_CALLS="$BATS_TEST_TMPDIR/himalaya-argv-calls.log"
+  export MOCK_HIMALAYA_STDIN="$BATS_TEST_TMPDIR/himalaya-stdin.log"
   : > "$MOCK_HIMALAYA_CALLS"
   : > "$MOCK_HIMALAYA_ARGV_CALLS"
+  : > "$MOCK_HIMALAYA_STDIN"
 
   cat > "$MOCK_BIN/himalaya" <<'MOCK'
 #!/usr/bin/env bash
@@ -76,6 +78,10 @@ echo "$@" >> "$MOCK_HIMALAYA_CALLS"
   done
   printf '\n'
 } >> "$MOCK_HIMALAYA_ARGV_CALLS"
+
+if [ "${1:-} ${2:-}" = "template send" ]; then
+  cat >> "$MOCK_HIMALAYA_STDIN"
+fi
 
 # Read canned response if set
 if [ -n "${MOCK_HIMALAYA_RESPONSE:-}" ] && [ -f "$MOCK_HIMALAYA_RESPONSE" ]; then
@@ -97,6 +103,10 @@ set_mock_response() {
 # Assert himalaya was called with specific args
 assert_himalaya_called() {
   grep -qF -- "$1" "$MOCK_HIMALAYA_CALLS"
+}
+
+himalaya_stdin() {
+  cat "$MOCK_HIMALAYA_STDIN"
 }
 
 # Count himalaya calls matching a pattern
