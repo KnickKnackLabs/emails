@@ -51,3 +51,84 @@ setup() {
   # Output should contain the error or be mostly empty (no message content)
   [[ "$output" != *"Subject:"* ]]
 }
+
+@test "read: matching signer and sender shows checkmark" {
+  setup_mock_gpg
+  echo 'gpg: Good signature from "Test Agent <test-agent@ricon.family>" [ultimate]' > "$GPG_MOCK_RESPONSE_FILE"
+
+  deposit_message --from "test-agent@ricon.family" --subject "Signed by sender"
+
+  local id
+  id=$(latest_envelope_id)
+  [ -n "$id" ] || skip "could not get envelope ID"
+
+  run emails read "$id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"✓ Signed by"* ]]
+  [[ "$output" != *"sender mismatch"* ]]
+}
+
+@test "read: signer differs from sender shows mismatch warning" {
+  setup_mock_gpg
+  echo 'gpg: Good signature from "zeke <zeke@ricon.family>" [ultimate]' > "$GPG_MOCK_RESPONSE_FILE"
+
+  deposit_message --from "quick@ricon.family" --subject "Signed by wrong identity"
+
+  local id
+  id=$(latest_envelope_id)
+  [ -n "$id" ] || skip "could not get envelope ID"
+
+  run emails read "$id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"⚠ Signed by"* ]]
+  [[ "$output" == *"sender mismatch"* ]]
+  [[ "$output" != *"✓ Signed by"* ]]
+}
+
+@test "read: signer without parseable email does not abort" {
+  setup_mock_gpg
+  echo 'gpg: Good signature from "Agent Without Email" [ultimate]' > "$GPG_MOCK_RESPONSE_FILE"
+
+  deposit_message --from "quick@ricon.family" --subject "Signed without email"
+
+  local id
+  id=$(latest_envelope_id)
+  [ -n "$id" ] || skip "could not get envelope ID"
+
+  run emails read "$id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"✓ Signed by Agent Without Email"* ]]
+  [[ "$output" != *"sender mismatch"* ]]
+}
+
+@test "read: sender without parseable email does not abort" {
+  setup_mock_gpg
+  echo 'gpg: Good signature from "Zeke <zeke@ricon.family>" [ultimate]' > "$GPG_MOCK_RESPONSE_FILE"
+
+  deposit_message --from "Zeke" --subject "Sender without email"
+
+  local id
+  id=$(latest_envelope_id)
+  [ -n "$id" ] || skip "could not get envelope ID"
+
+  run emails read "$id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"✓ Signed by Zeke <zeke@ricon.family>"* ]]
+  [[ "$output" != *"sender mismatch"* ]]
+}
+
+@test "read: signer and sender email comparison is case-insensitive" {
+  setup_mock_gpg
+  echo 'gpg: Good signature from "Quick <QUICK@RICON.FAMILY>" [ultimate]' > "$GPG_MOCK_RESPONSE_FILE"
+
+  deposit_message --from "quick@ricon.family" --subject "Case-insensitive signer"
+
+  local id
+  id=$(latest_envelope_id)
+  [ -n "$id" ] || skip "could not get envelope ID"
+
+  run emails read "$id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"✓ Signed by"* ]]
+  [[ "$output" != *"sender mismatch"* ]]
+}
