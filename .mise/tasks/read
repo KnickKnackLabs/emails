@@ -23,14 +23,25 @@ SIG_TAG=""
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
+extract_email() {
+  local text="$1"
+  local email
+  if email=$(printf '%s\n' "$text" | grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | head -1); then
+    printf '%s\n' "$email" | tr '[:upper:]' '[:lower:]'
+  fi
+}
+
 if "$HIMALAYA_BIN" message export --full -a "$AGENT" -f "$FOLDER" -d "$TMPDIR/msg.eml" "$ID" >/dev/null 2>&1; then
   GPG_OUTPUT=$(gpg --verify "$TMPDIR/msg.eml" 2>&1) && GPG_EXIT=0 || GPG_EXIT=$?
 
-  if [ $GPG_EXIT -eq 0 ] && echo "$GPG_OUTPUT" | grep -q "Good signature"; then
+  if [ "$GPG_EXIT" -eq 0 ] && echo "$GPG_OUTPUT" | grep -q "Good signature"; then
     SIGNER=$(echo "$GPG_OUTPUT" | grep "Good signature from" | sed 's/.*Good signature from "\(.*\)".*/\1/')
-    SIGNER_EMAIL=$(echo "$SIGNER" | grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | head -1)
-    FROM_HEADER=$(grep -m1 -i "^From:" "$TMPDIR/msg.eml" 2>/dev/null || true)
-    FROM_EMAIL=$(echo "$FROM_HEADER" | grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' | head -1)
+    SIGNER_EMAIL=$(extract_email "$SIGNER")
+    FROM_HEADER=""
+    if ! FROM_HEADER=$(grep -m1 -i "^From:" "$TMPDIR/msg.eml" 2>/dev/null); then
+      FROM_HEADER=""
+    fi
+    FROM_EMAIL=$(extract_email "$FROM_HEADER")
     if [ -n "$SIGNER_EMAIL" ] && [ -n "$FROM_EMAIL" ] && [ "$SIGNER_EMAIL" != "$FROM_EMAIL" ]; then
       SIG_TAG="(⚠ Signed by ${SIGNER} — sender mismatch)"
     else
