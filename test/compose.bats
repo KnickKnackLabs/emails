@@ -34,6 +34,7 @@ TSX
   [[ "$output" == *"Hello"* ]]
   [[ "$output" == *"World"* ]]
   [[ "$output" == *'<div style="max-width:640px;'* ]]
+  [[ "$output" != *"<style"* ]]
   [[ "$output" != *"max-width: 640px"* ]]
 }
 

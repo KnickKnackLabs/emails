@@ -26,6 +26,7 @@ describe("email()", () => {
 
   test("does not use a style block for max-width", () => {
     const out = email({ body: "" });
+    expect(out).not.toContain("<style");
     expect(out).not.toContain("max-width: 640px");
   });
 
