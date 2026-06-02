@@ -1,35 +1,72 @@
+<div align="center">
+
 # emails
 
-Email tooling for agents. Wraps [himalaya](https://github.com/pimalaya/himalaya) with agent identity, GPG signing, and quota management.
+**Email tooling for agents.**
+
+Wraps [himalaya](https://github.com/pimalaya/himalaya) with agent identity, GPG signing, and quota management.
+
+![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
+[![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
+![commands: 16](https://img.shields.io/badge/commands-16-blue?style=flat)
+[![tests: 116 passing](https://img.shields.io/badge/tests-116%20passing-brightgreen?style=flat)](test/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
+
+</div>
 
 ## Install
 
 ```bash
-shiv install KnickKnackLabs/emails
+shiv install emails
+```
+
+First-time setup for an agent:
+
+```bash
+emails setup <agent-name>
+```
+
+## Quick start
+
+```bash
+# Check inbox
+emails list
+
+# Read a message
+emails read <id>
+
+# Send a GPG-signed email
+emails send user@example.com "Subject" "Message body here."
+
+# Reply to a message
+emails reply <id> "Thanks, got it."
+
+# Overview and status
+emails welcome
 ```
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `emails send` | Send a GPG-signed email (supports `--html`) |
-| `emails read` | Read a message (with GPG signature verification) |
-| `emails list` | List messages (with unread filter, pagination) |
-| `emails reply` | Reply to a message (supports `--html`) |
-| `emails delete` | Delete message(s) (move to Trash or `--permanent`) |
-| `emails archive` | Move message(s) to Archive |
-| `emails wait` | Wait for new email to arrive (polling) |
-| `emails inspect` | Show MIME structure and metadata |
-| `emails export` | Export messages to a directory |
-| `emails purge` | Permanently delete all messages in a folder |
-| `emails sizes` | Per-folder sizes, largest messages, and optional `--group-by sender\|subject-prefix` diagnostics |
-| `emails quota` | Storage quota usage |
-| `emails status` | Check setup status for an agent |
-| `emails setup` | One-time himalaya configuration |
-| `emails welcome` | Overview and current status |
-| `emails compose` | Render a TSX email program to HTML |
+| Command          | Description                                                |
+| ---------------- | ---------------------------------------------------------- |
+| `emails archive` | Archive email message(s)                                   |
+| `emails compose` | Compose an email from a TSX file                           |
+| `emails delete`  | Delete email message(s) (moves to Trash)                   |
+| `emails export`  | Export emails to a directory                               |
+| `emails inspect` | Inspect email message structure and metadata               |
+| `emails list`    | List email messages                                        |
+| `emails purge`   | Permanently delete all messages in a folder                |
+| `emails quota`   | Show email storage quota usage                             |
+| `emails read`    | Read an email message                                      |
+| `emails reply`   | Reply to an email message                                  |
+| `emails send`    | Send a GPG-signed email                                    |
+| `emails setup`   | Setup email (himalaya) for an agent (one-time local setup) |
+| `emails sizes`   | Show per-folder email sizes and largest messages           |
+| `emails status`  | Check email (himalaya) setup status for an agent           |
+| `emails wait`    | Wait for new email to arrive                               |
+| `emails welcome` | Email intro and current status                             |
 
-## HTML Email
+## HTML email
 
 Send and reply support `--html` for HTML content:
 
@@ -44,52 +81,64 @@ cat email.html | emails send user@example.com "Subject" --html
 emails reply 42 --html -b '<h1>Thanks!</h1><p>Got it.</p>'
 ```
 
-## Compose
+## GPG signing
 
-`emails compose` runs a `.tsx` file that imports email components and prints the rendered body. The TSX file is a small program: parse flags, fetch data, decide what to show, then return HTML.
+All outgoing messages are GPG-signed automatically using the agent's key. This provides a unified cryptographic identity — the same key signs git commits and emails.
 
-```tsx
-/** @jsxImportSource emails */
-import { parseArgs } from "util";
-import { email } from "emails/src/email";
-import { Heading, Paragraph, Link } from "emails";
+Incoming messages show signature status when read:
 
-const { values } = parseArgs({
-  args: Bun.argv.slice(2),
-  options: { name: { type: "string" } },
-});
-
-console.log(email({
-  body: <>
-    <Heading>Hello {values.name}</Heading>
-    <Paragraph><Link href="https://example.com">Open report</Link></Paragraph>
-  </>,
-}));
 ```
+From: brownie@ricon.family (✓ Signed by brownie <brownie@ricon.family>)
+From: unknown@example.com (⚠ Unsigned)
+From: imposter@ricon.family (✗ Bad signature)
+```
+
+## Body input
+
+Messages accept body content three ways:
 
 ```bash
-emails compose ./hello.tsx --name x1f9 \
-  | emails send or@example.com "Hello" --html
+# Positional argument
+emails send user@example.com "Subject" "Inline body text."
+
+# Flag (or file path)
+emails send user@example.com "Subject" -b "Flag body text."
+emails send user@example.com "Subject" -b /path/to/body.txt
+
+# Stdin
+echo "Piped body." | emails send user@example.com "Subject"
 ```
 
-Text children are HTML-escaped by default. Use `<Raw>` only for trusted HTML.
+A minimum body length of 50 characters guards against accidental sends. Override with `--allow-short`.
 
-## Setup
+## Testing
 
-Requires:
-- [himalaya](https://github.com/pimalaya/himalaya) — IMAP/SMTP client
-- GPG key configured for the agent
-- Agent identity set via `shimmer as <agent>` (sets `GIT_AUTHOR_EMAIL`)
+116 tests across two suites:
 
-First-time setup:
+- **Unit tests (81)** — mock himalaya, test task logic in isolation
+- **Integration tests (35)** — real himalaya against a local maildir backend, full round-trip
+
 ```bash
-emails setup <agent-name>
+mise run test              # unit tests
+mise run test-integration  # integration tests (maildir-backed, no network)
 ```
 
-This creates `~/.config/himalaya/config.toml` with IMAP/SMTP credentials pulled from `secrets`.
+## Development
 
-## Architecture
+```bash
+git clone https://github.com/KnickKnackLabs/emails.git
+cd emails && mise trust && mise install
+mise run test
+```
 
-Extracted from `shimmer email:*` tasks ([shimmer#707](https://github.com/KnickKnackLabs/shimmer/issues/707)). Follows the same pattern as `chat`, `notes`, `sessions` — tool-per-concern, shiv-installable.
+Requires [himalaya](https://github.com/pimalaya/himalaya) and a GPG key configured for the agent.
 
-All tasks use `lib/email.sh` for shared agent identity detection and himalaya config validation.
+<br />
+
+<div align="center">
+
+---
+
+<sub>
+This README was generated from [README.tsx](https://github.com/KnickKnackLabs/readme).
+</sub></div>
