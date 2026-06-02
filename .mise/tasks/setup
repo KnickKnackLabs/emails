@@ -4,13 +4,13 @@
 
 set -euo pipefail
 
+# shellcheck disable=SC2154 # mise provides usage_agent from #USAGE.
 AGENT="$usage_agent"
 EMAIL="${AGENT}@ricon.family"
-DOMAIN="ricon.family"
 MAIL_SERVER="mail.ricon.family"
 
-CONFIG_DIR="${HOME}/.config/himalaya"
-CONFIG_FILE="${CONFIG_DIR}/config.toml"
+CONFIG_FILE="${HIMALAYA_CONFIG:-${HOME}/.config/himalaya/config.toml}"
+CONFIG_DIR="$(dirname "$CONFIG_FILE")"
 
 # Check if himalaya is available
 if ! command -v himalaya &> /dev/null; then
@@ -80,7 +80,7 @@ downloads-dir = "$HOME/agents/$AGENT/downloads"
 
 # GPG signing (requires gpg:setup first)
 pgp.type = "commands"
-pgp.sign-cmd = "gpg --sign --quiet --armor"
+pgp.sign-cmd = "gpg --local-user $EMAIL --sign --quiet --armor"
 pgp.decrypt-cmd = "gpg --decrypt --quiet"
 pgp.verify-cmd = "gpg --verify --quiet"
 ACCOUNT_EOF
