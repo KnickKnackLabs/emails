@@ -57,3 +57,37 @@ EOF
   run ! grep -qF 'pgp.sign-cmd = "gpg --sign --quiet --armor"' "$HIMALAYA_CONFIG"
   [ "$(grep -c '^\[accounts\.c0da\]$' "$HIMALAYA_CONFIG")" -eq 1 ]
 }
+
+@test "setup: leaves existing account-specific GPG signing command unchanged" {
+  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.c0da]
+default = true
+email = "c0da@ricon.family"
+pgp.sign-cmd = "gpg --local-user c0da@ricon.family --sign --quiet --armor"
+EOF
+
+  run emails setup c0da
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"GPG signing command already account-specific or custom for c0da@ricon.family"* ]]
+  grep -qF 'pgp.sign-cmd = "gpg --local-user c0da@ricon.family --sign --quiet --armor"' "$HIMALAYA_CONFIG"
+  [ "$(grep -c 'pgp.sign-cmd =' "$HIMALAYA_CONFIG")" -eq 1 ]
+}
+
+@test "setup: leaves custom GPG signing command unchanged" {
+  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.c0da]
+default = true
+email = "c0da@ricon.family"
+pgp.sign-cmd = "custom-sign --identity c0da"
+EOF
+
+  run emails setup c0da
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"GPG signing command already account-specific or custom for c0da@ricon.family"* ]]
+  grep -qF 'pgp.sign-cmd = "custom-sign --identity c0da"' "$HIMALAYA_CONFIG"
+  run ! grep -qF 'pgp.sign-cmd = "gpg --local-user c0da@ricon.family --sign --quiet --armor"' "$HIMALAYA_CONFIG"
+}
