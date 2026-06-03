@@ -79,10 +79,14 @@ const readme = (
       <CodeBlock lang="bash">{`shiv install emails`}</CodeBlock>
 
       <Paragraph>
-        {"First-time setup for an agent:"}
+        {"First-time setup for an agent. Provide the password explicitly via environment or stdin; compose with your secret manager outside emails."}
       </Paragraph>
 
-      <CodeBlock lang="bash">{`emails setup <agent-name>`}</CodeBlock>
+      <CodeBlock lang="bash">{`# Environment variable
+EMAIL_PASSWORD="..." emails setup <agent-name>
+
+# Or stdin, usually from a password manager command
+password-manager get <agent-name>/email-password | emails setup <agent-name> --password-stdin`}</CodeBlock>
     </Section>
 
     <Section title="Quick start">
