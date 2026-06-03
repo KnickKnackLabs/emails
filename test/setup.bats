@@ -34,3 +34,26 @@ EOF
   grep -qF 'pgp.sign-cmd = "gpg --local-user k7r2@ricon.family --sign --quiet --armor"' "$HIMALAYA_CONFIG"
   grep -qF 'default = false' "$HIMALAYA_CONFIG"
 }
+
+@test "setup: migrates existing bare GPG signing command" {
+  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.zeke]
+default = true
+email = "zeke@ricon.family"
+pgp.sign-cmd = "gpg --local-user zeke@ricon.family --sign --quiet --armor"
+
+[accounts.c0da]
+default = false
+email = "c0da@ricon.family"
+pgp.sign-cmd = "gpg --sign --quiet --armor"
+EOF
+
+  run emails setup c0da
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Updated GPG signing command for c0da@ricon.family"* ]]
+  grep -qF 'pgp.sign-cmd = "gpg --local-user c0da@ricon.family --sign --quiet --armor"' "$HIMALAYA_CONFIG"
+  run ! grep -qF 'pgp.sign-cmd = "gpg --sign --quiet --armor"' "$HIMALAYA_CONFIG"
+  [ "$(grep -c '^\[accounts\.c0da\]$' "$HIMALAYA_CONFIG")" -eq 1 ]
+}

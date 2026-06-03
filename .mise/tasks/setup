@@ -19,8 +19,30 @@ if ! command -v himalaya &> /dev/null; then
   exit 1
 fi
 
-# Check if already configured
+# Check if already configured. Older setup wrote a bare `gpg --sign`, which
+# can pick another agent's default key on multi-agent machines; migrate that
+# account in place instead of requiring manual reconfiguration.
 if [ -f "$CONFIG_FILE" ] && grep -q "accounts.$AGENT" "$CONFIG_FILE" 2>/dev/null; then
+  if awk -v agent="$AGENT" '
+    $0 == "[accounts." agent "]" { in_account = 1 }
+    in_account && $0 ~ /^\[accounts\.[^]]+\]$/ && $0 != "[accounts." agent "]" { in_account = 0 }
+    in_account && $0 == "pgp.sign-cmd = \"gpg --sign --quiet --armor\"" { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$CONFIG_FILE"; then
+    TMP_CONFIG="${CONFIG_FILE}.tmp.$$"
+    awk -v agent="$AGENT" -v email="$EMAIL" '
+      $0 == "[accounts." agent "]" { in_account = 1 }
+      in_account && $0 ~ /^\[accounts\.[^]]+\]$/ && $0 != "[accounts." agent "]" { in_account = 0 }
+      in_account && $0 == "pgp.sign-cmd = \"gpg --sign --quiet --armor\"" {
+        print "pgp.sign-cmd = \"gpg --local-user " email " --sign --quiet --armor\""
+        next
+      }
+      { print }
+    ' "$CONFIG_FILE" > "$TMP_CONFIG"
+    mv "$TMP_CONFIG" "$CONFIG_FILE"
+    echo "Updated GPG signing command for $EMAIL"
+  fi
+
   echo "Email already configured for $EMAIL"
   echo "Config: $CONFIG_FILE"
   echo ""
