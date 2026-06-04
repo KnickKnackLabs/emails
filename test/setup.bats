@@ -18,6 +18,28 @@ setup() {
   grep -qF 'pgp.sign-cmd = "gpg --local-user c0da@ricon.family --sign --quiet --armor"' "$HIMALAYA_CONFIG"
 }
 
+@test "setup: reads password from stdin when requested" {
+  unset EMAIL_PASSWORD
+
+  run bash -c 'printf "%s" "stdin-password" | emails setup or --password-stdin'
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Email configured for or@ricon.family"* ]]
+  grep -qF 'backend.auth.raw = "stdin-password"' "$HIMALAYA_CONFIG"
+  grep -qF 'message.send.backend.auth.raw = "stdin-password"' "$HIMALAYA_CONFIG"
+}
+
+@test "setup: fails without an explicit password source" {
+  unset EMAIL_PASSWORD
+
+  run emails setup or
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Could not get email password for or"* ]]
+  [[ "$output" == *"Set EMAIL_PASSWORD env var manually"* ]]
+  [[ "$output" == *"emails setup or --password-stdin"* ]]
+}
+
 @test "setup: appended account uses its own signing key" {
   mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
   cat > "$HIMALAYA_CONFIG" <<'EOF'

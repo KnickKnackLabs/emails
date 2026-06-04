@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Setup email (himalaya) for an agent (one-time local setup)"
 #USAGE arg "<agent>" help="Agent name (e.g., quick, brownie)"
+#USAGE flag "--password-stdin" default=#false help="Read email password from stdin instead of EMAIL_PASSWORD"
 
 set -euo pipefail
 
@@ -86,18 +87,26 @@ if [ -f "$CONFIG_FILE" ] && grep -qF "[accounts.$AGENT]" "$CONFIG_FILE" 2>/dev/n
   exit 0
 fi
 
-# Get password: env var > secrets tool > error
-if [ -z "${EMAIL_PASSWORD:-}" ]; then
-  # Empty result (missing key) is expected; we fall through to the empty-check below.
-  EMAIL_PASSWORD=$(secrets get "$AGENT/email-password" 2>/dev/null) || EMAIL_PASSWORD=""
+# Get password explicitly: stdin flag > env var > error.
+# Compose with any secret manager outside this tool by piping the password into setup.
+EMAIL_PASSWORD_VALUE=""
+if [ "${usage_password_stdin:-false}" = "true" ]; then
+  if [ -t 0 ]; then
+    echo "ERROR: --password-stdin was provided, but stdin is a terminal" >&2
+    echo "Pipe the password into setup, or use EMAIL_PASSWORD." >&2
+    exit 1
+  fi
+  EMAIL_PASSWORD_VALUE="$(cat)"
+elif [ -n "${EMAIL_PASSWORD:-}" ]; then
+  EMAIL_PASSWORD_VALUE="$EMAIL_PASSWORD"
 fi
 
-if [ -z "$EMAIL_PASSWORD" ]; then
-  echo "ERROR: Could not get email password for $AGENT"
-  echo ""
-  echo "Options:"
-  echo "  1. Store via: secrets set $AGENT/email-password"
-  echo "  2. Set EMAIL_PASSWORD env var manually"
+if [ -z "$EMAIL_PASSWORD_VALUE" ]; then
+  echo "ERROR: Could not get email password for $AGENT" >&2
+  echo "" >&2
+  echo "Options:" >&2
+  echo "  1. Set EMAIL_PASSWORD env var manually" >&2
+  echo "  2. Pipe a password: <command> | emails setup $AGENT --password-stdin" >&2
   exit 1
 fi
 
@@ -106,7 +115,7 @@ DOWNLOADS_DIR="${HOME}/agents/${AGENT}/downloads"
 mkdir -p "$DOWNLOADS_DIR"
 
 # Escape password for TOML basic string
-ESCAPED_PASSWORD=$(printf '%s' "$EMAIL_PASSWORD" | sed 's/\\/\\\\/g; s/"/\\"/g')
+ESCAPED_PASSWORD=$(printf '%s' "$EMAIL_PASSWORD_VALUE" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
 # Build the account config block
 ACCOUNT_CONFIG=$(cat <<ACCOUNT_EOF
