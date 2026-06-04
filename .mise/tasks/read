@@ -102,7 +102,12 @@ if [ "$HAS_ATTACHMENT" = "true" ]; then
     while IFS= read -r fname; do
       [ -n "$fname" ] || continue
       f="$DOWNLOADS_DIR/$fname"
-      if [[ "$fname" != *.* ]] && file -b "$f" | grep -qi "pgp\|gpg"; then
+      # Drop detached PGP signatures from the listing. They arrive either with no
+      # extension (older himalaya) or named signature.asc/.pgp/.sig (our send task
+      # names them so Gmail shows a recognizable attachment); the file-type guard
+      # keeps us from discarding genuine user attachments with those extensions.
+      if { [[ "$fname" != *.* ]] || [[ "$fname" == *.asc ]] || [[ "$fname" == *.pgp ]] || [[ "$fname" == *.sig ]]; } \
+        && file -b "$f" | grep -qi "pgp\|gpg"; then
         rm -f "$f"
       else
         FOUND=$((FOUND + 1))

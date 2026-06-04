@@ -31,3 +31,26 @@ if [ "${NEED_IMAP:-0}" = "1" ]; then
     return 1 2>/dev/null || exit 1
   fi
 fi
+
+# Name the detached PGP/MIME signature part so recipients (e.g. Gmail) see
+# "signature.asc" instead of "noname". himalaya/mml emit the signature part as a
+# bare `Content-Type: application/pgp-signature` with no name/disposition/description
+# (pimalaya/core mml/src/message/body/compiler/mod.rs), so we inject the standard
+# headers here. This is safe: a PGP/MIME signature covers only the canonicalised
+# clear part, never the signature part's own MIME headers, so the signature stays
+# valid. Reads a raw .eml on stdin, writes the rewritten message to stdout;
+# CRLF line endings are preserved.
+inject_signature_name() {
+  awk '
+    !done && tolower($0) ~ /^content-type:[[:space:]]*application\/pgp-signature[[:space:]]*\r?$/ {
+      cr = ""
+      if (sub(/\r$/, "")) cr = "\r"
+      print $0 "; name=\"signature.asc\"" cr
+      print "Content-Disposition: attachment; filename=\"signature.asc\"" cr
+      print "Content-Description: OpenPGP digital signature" cr
+      done = 1
+      next
+    }
+    { print }
+  '
+}

@@ -222,8 +222,9 @@ if [ "$CC_COUNT" -gt 0 ]; then
   CC_HEADER="Cc: $CC_ADDRS"
 fi
 
-# Send with GPG signing using MML template.
-"$HIMALAYA_BIN" template send -a "$AGENT" << EOF
+# Compose the message in MML. himalaya compiles this into an RFC 3156
+# multipart/signed message, GPG-signing the body (+ attachments) as a unit.
+MML=$(cat << EOF
 From: $FROM
 To: $TO
 ${CC_HEADER:+$CC_HEADER
@@ -236,6 +237,61 @@ $BODY
 $ATTACH_MML
 <#/multipart>
 EOF
+)
+
+# Newline-separated Drafts envelope ids (empty if folder empty/unavailable).
+drafts_ids() {
+  "$HIMALAYA_BIN" -o json envelope list -a "$AGENT" -f Drafts --page-size 1000 2>/dev/null \
+    | jq -r '.[].id' 2>/dev/null
+}
+
+# Permanently remove the transient draft copies (arg: space-separated ids) so they
+# do not pile up in Trash. `folder expunge` only drops the ids we flag deleted, so
+# any genuine drafts are left untouched.
+purge_drafts() {
+  [ -n "$1" ] || return 0
+  "$HIMALAYA_BIN" flag add -a "$AGENT" -f Drafts $1 deleted >/dev/null 2>&1
+  "$HIMALAYA_BIN" folder expunge -a "$AGENT" Drafts >/dev/null 2>&1
+}
+
+# Send the message with the detached PGP signature named "signature.asc" so
+# recipients (e.g. Gmail) see a recognizable attachment instead of "noname".
+# himalaya can't name the signature part itself (it is hardcoded unnamed in
+# pimalaya/core's mml compiler), and `template send` compiles+sends atomically, so
+# we intercept the compiled message: save it to Drafts (the only no-send compile
+# path), export the raw MIME, inject the signature filename headers, then send the
+# raw via `message send`. The draft copies are always purged on return.
+#
+# Returns non-zero (without sending) on any failure so the caller can fall back to
+# a plain signed send rather than dropping the message.
+send_named_signature() {
+  local tmp saved="" new_ids="" drafts_before drafts_after draft_id
+  tmp=$(mktemp -d) || return 1
+  # shellcheck disable=SC2064
+  trap 'rm -rf "$tmp"; [ -n "$saved" ] && purge_drafts "$new_ids"; trap - RETURN' RETURN
+
+  drafts_before=$(drafts_ids) || return 1
+  # NB: no `-o json` here — under json output himalaya's `template save` reads the
+  # template from its (empty) positional arg instead of stdin and fails to parse.
+  printf '%s' "$MML" | "$HIMALAYA_BIN" template save -a "$AGENT" -f Drafts >/dev/null 2>&1 || return 1
+  saved=1
+  drafts_after=$(drafts_ids) || return 1
+
+  # himalaya v1.2.0's `template save` writes the draft twice; diff before/after so
+  # cleanup removes every copy regardless of count.
+  new_ids=$(comm -13 <(printf '%s\n' "$drafts_before" | sort) <(printf '%s\n' "$drafts_after" | sort) | tr '\n' ' ')
+  draft_id=$(printf '%s\n' $new_ids | grep -m1 .)
+  [ -n "$draft_id" ] || return 1
+
+  "$HIMALAYA_BIN" message export --full -a "$AGENT" -f Drafts -d "$tmp/signed.eml" "$draft_id" >/dev/null 2>&1 || return 1
+  inject_signature_name < "$tmp/signed.eml" > "$tmp/named.eml" || return 1
+  "$HIMALAYA_BIN" message send -a "$AGENT" < "$tmp/named.eml" >/dev/null 2>&1 || return 1
+}
+
+if ! send_named_signature; then
+  echo "Note: named-signature send unavailable; falling back to standard signed send." >&2
+  printf '%s' "$MML" | "$HIMALAYA_BIN" template send -a "$AGENT"
+fi
 
 if [ -n "${CC_HEADER:-}" ]; then
   echo "Sent to $TO (cc: $CC_ADDRS)"

@@ -37,6 +37,39 @@ setup() {
   [[ "$output" == *"@"* ]]
 }
 
+@test "send: names the PGP signature attachment and keeps it valid (issue #28)" {
+  setup_signing_key
+
+  emails send test-agent@ricon.family "Named signature test" \
+    "This message verifies the detached PGP signature is named signature.asc and still verifies."
+
+  local sent_msg
+  sent_msg=$(find "$MAILDIR_ROOT/Sent" -type f | head -1)
+  [ -n "$sent_msg" ]
+
+  # The message is really signed and the signature part is now recipient-friendly.
+  run cat "$sent_msg"
+  [[ "$output" == *"multipart/signed"* ]]
+  [[ "$output" == *'Content-Type: application/pgp-signature; name="signature.asc"'* ]]
+  [[ "$output" == *'Content-Disposition: attachment; filename="signature.asc"'* ]]
+  [[ "$output" == *'Content-Description: OpenPGP digital signature'* ]]
+
+  # Rewriting the signature part's own headers must not invalidate the signature
+  # (it covers only the signed clear part, never the signature part's MIME headers).
+  run gpg --verify "$sent_msg"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Good signature"* ]]
+
+  # The transient draft copies used to build the message must be cleaned up, and
+  # permanently — not left piling up in Trash.
+  run himalaya -c "$HIMALAYA_CONFIG" envelope list -a "$AGENT" -f Drafts --page-size 100 2>/dev/null
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Named signature test"* ]]
+
+  run himalaya -c "$HIMALAYA_CONFIG" envelope list -a "$AGENT" -f Trash --page-size 100 2>/dev/null
+  [[ "$output" != *"Named signature test"* ]]
+}
+
 @test "send: rejects empty body" {
   run emails send test-agent@ricon.family "Empty body test" </dev/null
   [ "$status" -ne 0 ]

@@ -140,6 +140,20 @@ MOCK
   export PATH="$mock_bin:$PATH"
 }
 
+# Generate an ephemeral GPG key for the test agent so `emails send` produces a
+# genuinely signed (multipart/signed) message. Without a key himalaya silently
+# degrades to an unsigned multipart/mixed, so only tests that assert on the real
+# signature need this. Scopes GNUPGHOME to the test tmpdir; bats isolates each
+# test, so it does not leak to other tests.
+setup_signing_key() {
+  export GNUPGHOME="$BATS_TEST_TMPDIR/gnupg"
+  mkdir -p "$GNUPGHOME"
+  chmod 700 "$GNUPGHOME"
+  gpg --batch --pinentry-mode loopback --passphrase '' \
+    --quick-generate-key "Test Agent <test-agent@ricon.family>" default default never \
+    >/dev/null 2>&1
+}
+
 # Get the envelope ID of the most recent message via himalaya
 latest_envelope_id() {
   local folder="${1:-INBOX}"

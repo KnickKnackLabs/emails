@@ -60,7 +60,7 @@ setup() {
 @test "send: allows short body with --allow-short" {
   run emails send user@example.com "Test Subject" "hi" --allow-short
   [ "$status" -eq 0 ]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
 }
 
 @test "send: sends with sufficient body length" {
@@ -68,7 +68,7 @@ setup() {
   run emails send user@example.com "Test Subject" "$body"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to user@example.com"* ]]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
 }
 
 # ============================================================================
@@ -82,14 +82,14 @@ setup() {
 
   # Check that himalaya was called and the MML included text/plain
   # (the mock just logs args, the actual MML goes via stdin which we can't easily capture)
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
 }
 
 @test "send: --html flag accepted" {
   local body="<h1>Hello</h1><p>This is an HTML email body that is definitely long enough to pass validation.</p>"
   run emails send user@example.com "Subject" --html "$body"
   [ "$status" -eq 0 ]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
 }
 
 # ============================================================================
@@ -101,7 +101,7 @@ setup() {
   echo "This is a message body loaded from a file, long enough to pass the minimum length check." > "$body_file"
   run emails send user@example.com "Subject" "$body_file"
   [ "$status" -eq 0 ]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
 }
 
 # ============================================================================
@@ -120,7 +120,7 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"too short"* ]]
   [[ "$output" != *"body is required"* ]]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
 }
 
 # ============================================================================
@@ -165,7 +165,7 @@ setup() {
   run emails send --to user@example.com --subject "Explicit flags test" -b "$body"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to user@example.com"* ]]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
   mml=$(himalaya_stdin)
   [[ "$mml" == *"To: user@example.com"* ]]
   [[ "$mml" == *"Subject: Explicit flags test"* ]]
@@ -187,7 +187,7 @@ setup() {
   run emails send --to user@example.com --subject candi@example.com -b "$body"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to user@example.com"* ]]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
 }
 
 # ============================================================================
@@ -206,7 +206,7 @@ JSON
   run emails send --file "$spec"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to user@example.com"* ]]
-  assert_himalaya_called "template send"
+  assert_himalaya_called "message send"
   mml=$(himalaya_stdin)
   [[ "$mml" == *"To: user@example.com"* ]]
   [[ "$mml" == *"Subject: File spec test"* ]]
@@ -315,6 +315,55 @@ JSON
   run emails send --file "$spec" -b "extra body"
   [ "$status" -ne 0 ]
   [[ "$output" == *"already provides a body"* ]]
+}
+
+# ============================================================================
+# PGP signature naming (issue #28)
+# ============================================================================
+
+@test "send: compiles a pgpmime-signed template" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send user@example.com "Subject" "$body"
+  [ "$status" -eq 0 ]
+  assert_himalaya_called "template save"
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"sign=pgpmime"* ]]
+}
+
+@test "send: names the detached PGP signature attachment signature.asc" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send user@example.com "Subject" "$body"
+  [ "$status" -eq 0 ]
+  assert_himalaya_called "message send"
+
+  raw=$(himalaya_send_raw)
+  [[ "$raw" == *'Content-Type: application/pgp-signature; name="signature.asc"'* ]]
+  [[ "$raw" == *'Content-Disposition: attachment; filename="signature.asc"'* ]]
+  [[ "$raw" == *'Content-Description: OpenPGP digital signature'* ]]
+}
+
+@test "send: signature naming preserves the signed body and signature" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send user@example.com "Subject" "$body"
+  [ "$status" -eq 0 ]
+
+  raw=$(himalaya_send_raw)
+  # The clear part and armored signature must survive the rewrite untouched.
+  [[ "$raw" == *"mock signed body content"* ]]
+  [[ "$raw" == *"-----BEGIN PGP SIGNATURE-----"* ]]
+  [[ "$raw" == *"-----END PGP SIGNATURE-----"* ]]
+}
+
+@test "send: permanently purges the draft copies it created" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send user@example.com "Subject" "$body"
+  [ "$status" -eq 0 ]
+  # Drafts are flagged + expunged (permanent), not moved to Trash.
+  assert_himalaya_called "flag add"
+  assert_himalaya_called "folder expunge"
+  ! assert_himalaya_called "message delete"
+  # No draft ids should remain in the simulated Drafts folder.
+  [ -z "$(drafts_state)" ]
 }
 
 # ============================================================================
