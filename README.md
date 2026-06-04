@@ -9,7 +9,7 @@ Wraps [himalaya](https://github.com/pimalaya/himalaya) with agent identity, GPG 
 ![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
 ![commands: 16](https://img.shields.io/badge/commands-16-blue?style=flat)
-[![tests: 124 passing](https://img.shields.io/badge/tests-124%20passing-brightgreen?style=flat)](test/)
+[![tests: 133 passing](https://img.shields.io/badge/tests-133%20passing-brightgreen?style=flat)](test/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
 </div>
@@ -117,10 +117,10 @@ A minimum body length of 50 characters guards against accidental sends. Override
 
 ## Testing
 
-124 tests across two suites:
+133 tests across two suites:
 
-- **Unit tests (89)** — mock himalaya, test task logic in isolation
-- **Integration tests (35)** — real himalaya against a local maildir backend, full round-trip
+- **Unit tests (97)** — mock himalaya, test task logic in isolation
+- **Integration tests (36)** — real himalaya against a local maildir backend, full round-trip
 
 ```bash
 mise run test              # unit tests
