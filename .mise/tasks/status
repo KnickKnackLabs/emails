@@ -6,13 +6,14 @@ set -euo pipefail
 
 AGENT="$usage_agent"
 EMAIL="${AGENT}@ricon.family"
-CONFIG_FILE="${HOME}/.config/himalaya/config.toml"
+CONFIG_FILE="${HIMALAYA_CONFIG:-${HOME}/.config/himalaya/config.toml}"
+HIMALAYA_BIN="${HIMALAYA:-himalaya}"
 
 echo "Email status for $AGENT ($EMAIL)"
 echo ""
 
 # Check if himalaya is available
-if ! command -v himalaya &> /dev/null; then
+if ! command -v "$HIMALAYA_BIN" &> /dev/null; then
   echo "Himalaya installed: ✗"
   echo ""
   echo "Run: mise install"
@@ -30,7 +31,7 @@ fi
 echo "Config exists: ✓"
 
 # Check if agent account is configured
-if ! grep -q "accounts.$AGENT" "$CONFIG_FILE" 2>/dev/null; then
+if ! grep -qF "[accounts.$AGENT]" "$CONFIG_FILE" 2>/dev/null; then
   echo "Account configured: ✗"
   echo ""
   echo "Run: emails setup $AGENT"
@@ -41,7 +42,7 @@ echo "Account configured: ✓"
 # Try to connect (quick check)
 echo ""
 echo "Testing connection..."
-if himalaya envelope list --max-width 0 2>/dev/null | head -1 > /dev/null; then
+if "$HIMALAYA_BIN" envelope list -a "$AGENT" --max-width 0 2>/dev/null | head -1 > /dev/null; then
   echo "Connection: ✓"
 else
   echo "Connection: ✗ (check credentials)"

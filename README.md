@@ -9,7 +9,7 @@ Wraps [himalaya](https://github.com/pimalaya/himalaya) with agent identity, GPG 
 ![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
 ![commands: 16](https://img.shields.io/badge/commands-16-blue?style=flat)
-[![tests: 124 passing](https://img.shields.io/badge/tests-124%20passing-brightgreen?style=flat)](test/)
+[![tests: 127 passing](https://img.shields.io/badge/tests-127%20passing-brightgreen?style=flat)](test/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
 </div>
@@ -87,7 +87,7 @@ emails reply 42 --html -b '<h1>Thanks!</h1><p>Got it.</p>'
 
 ## GPG signing
 
-All outgoing messages are GPG-signed automatically using the agent's key. This provides a unified cryptographic identity — the same key signs git commits and emails.
+All outgoing messages are GPG-signed automatically using the exact account email key. This provides a unified cryptographic identity — the same key signs git commits and emails, and a missing exact key fails instead of falling back to another agent's key.
 
 Incoming messages show signature status when read:
 
@@ -117,9 +117,9 @@ A minimum body length of 50 characters guards against accidental sends. Override
 
 ## Testing
 
-124 tests across two suites:
+127 tests across two suites:
 
-- **Unit tests (89)** — mock himalaya, test task logic in isolation
+- **Unit tests (92)** — mock himalaya, test task logic in isolation
 - **Integration tests (35)** — real himalaya against a local maildir backend, full round-trip
 
 ```bash
