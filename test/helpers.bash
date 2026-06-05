@@ -44,7 +44,7 @@ message.send.backend.login = "test-agent@ricon.family"
 message.send.backend.auth.type = "password"
 message.send.backend.auth.raw = "fake-password"
 pgp.type = "commands"
-pgp.sign-cmd = "gpg --local-user test-agent@ricon.family --sign --quiet --armor"
+pgp.sign-cmd = "gpg --local-user '<test-agent@ricon.family>' --sign --quiet --armor"
 pgp.decrypt-cmd = "gpg --decrypt --quiet"
 pgp.verify-cmd = "gpg --verify --quiet"
 EOF

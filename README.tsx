@@ -140,8 +140,8 @@ emails reply 42 --html -b '<h1>Thanks!</h1><p>Got it.</p>'`}</CodeBlock>
 
     <Section title="GPG signing">
       <Paragraph>
-        {"All outgoing messages are GPG-signed automatically using the agent's key. "}
-        {"This provides a unified cryptographic identity — the same key signs git commits and emails."}
+        {"All outgoing messages are GPG-signed automatically using the exact account email key. "}
+        {"This provides a unified cryptographic identity — the same key signs git commits and emails, and a missing exact key fails instead of falling back to another agent's key."}
       </Paragraph>
 
       <Paragraph>
