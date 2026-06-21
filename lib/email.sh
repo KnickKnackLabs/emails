@@ -70,7 +70,8 @@ email_account_field() {
         value = line
         sub(/^[^=]*=/, "", value)
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-        gsub(/^\"|\"$/, "", value)
+        gsub(/^"/, "", value)
+        gsub(/"$/, "", value)
         print value
         exit
       }
