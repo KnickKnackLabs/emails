@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#MISE description="List configured email accounts"
+
+set -euo pipefail
+
+EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "No email config found: $CONFIG_FILE"
+  exit 0
+fi
+
+accounts="$(email_account_names)"
+if [ -z "$accounts" ]; then
+  echo "No email accounts configured in $CONFIG_FILE"
+  exit 0
+fi
+
+while IFS= read -r account; do
+  [ -n "$account" ] || continue
+  email="$(email_account_field "$account" email)"
+  default="$(email_account_field "$account" default)"
+  sign_cmd="$(email_account_field "$account" pgp.sign-cmd)"
+  [ "$default" = "true" ] && default="yes" || default="no"
+  [ -n "$sign_cmd" ] && gpg="yes" || gpg="no"
+  printf '%s|%s|%s|%s\n' "$account" "$email" "$default" "$gpg"
+done <<< "$accounts" | gum table -p -s '|' -c 'Account,Address,Default,GPG'

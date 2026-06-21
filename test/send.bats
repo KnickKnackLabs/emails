@@ -318,15 +318,15 @@ JSON
 }
 
 # ============================================================================
-# Identity
+# Config
 # ============================================================================
 
-@test "send: fails without agent identity" {
-  unset GIT_AUTHOR_EMAIL
-  export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
-  echo "" > "$GIT_CONFIG_GLOBAL"
+@test "send: fails without email config" {
+  rm -f "$HIMALAYA_CONFIG"
   local body="This is a message body that is definitely longer than fifty characters for testing."
-  GIT_CONFIG_COUNT=0 run emails send user@example.com "Subject" "$body"
+
+  run emails send user@example.com "Subject" "$body"
+
   [ "$status" -ne 0 ]
-  [[ "$output" == *"No agent identity"* ]]
+  [[ "$output" == *"Email config not found"* ]]
 }

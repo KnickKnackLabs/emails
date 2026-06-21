@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+#MISE description="Setup an explicit email account in the selected Himalaya config"
+#USAGE arg "<account>" help="Account name inside this email config (e.g., personal, kkl)"
+#USAGE flag "--address <address>" help="Email address for this account"
+#USAGE flag "--display-name <display_name>" default="" help="Display name for outgoing mail"
+#USAGE flag "--imap-host <imap_host>" help="IMAP host"
+#USAGE flag "--imap-port <imap_port>" default="993" help="IMAP port"
+#USAGE flag "--smtp-host <smtp_host>" help="SMTP host"
+#USAGE flag "--smtp-port <smtp_port>" default="465" help="SMTP port"
+#USAGE flag "--password-stdin" default=#false help="Read account password from stdin"
+#USAGE flag "--set-default" default=#false help="Mark this account as the default account"
+#USAGE flag "--gpg-local-user <gpg_local_user>" default="" help="Enable signing with this GPG local-user selector"
+#USAGE flag "--downloads-dir <downloads_dir>" default="" help="Attachment download directory"
+
+set -euo pipefail
+
+EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+ACCOUNT_NAME="$usage_account"
+ADDRESS="${usage_address:-}"
+DISPLAY_NAME="${usage_display_name:-}"
+IMAP_HOST="${usage_imap_host:-}"
+IMAP_PORT="${usage_imap_port:-993}"
+SMTP_HOST="${usage_smtp_host:-}"
+SMTP_PORT="${usage_smtp_port:-465}"
+SET_DEFAULT="${usage_set_default:-false}"
+GPG_LOCAL_USER="${usage_gpg_local_user:-}"
+DOWNLOADS_DIR="${usage_downloads_dir:-}"
+
+if ! printf '%s\n' "$ACCOUNT_NAME" | grep -Eq '^[A-Za-z0-9_.-]+$'; then
+  echo "ERROR: account name must contain only letters, numbers, dot, underscore, or dash" >&2
+  exit 1
+fi
+if [ -z "$ADDRESS" ]; then
+  echo "ERROR: --address is required" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$ADDRESS" | grep -Eq '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'; then
+  echo "ERROR: --address does not look like an email address: $ADDRESS" >&2
+  exit 1
+fi
+if [ -z "$IMAP_HOST" ] || [ -z "$SMTP_HOST" ]; then
+  echo "ERROR: --imap-host and --smtp-host are required" >&2
+  exit 1
+fi
+if [ "${usage_password_stdin:-false}" != "true" ]; then
+  echo "ERROR: provide the password explicitly with --password-stdin" >&2
+  echo "Example: printf '%s' '<password>' | emails account setup $ACCOUNT_NAME --address $ADDRESS --imap-host $IMAP_HOST --smtp-host $SMTP_HOST --password-stdin" >&2
+  exit 1
+fi
+if [ -t 0 ]; then
+  echo "ERROR: --password-stdin was provided, but stdin is a terminal" >&2
+  exit 1
+fi
+PASSWORD_VALUE="$(cat)"
+if [ -z "$PASSWORD_VALUE" ]; then
+  echo "ERROR: password from stdin was empty" >&2
+  exit 1
+fi
+
+if [ -z "$DISPLAY_NAME" ]; then
+  DISPLAY_NAME="${ADDRESS%%@*}"
+fi
+
+CONFIG_DIR="$(dirname "$CONFIG_FILE")"
+if [ -z "$DOWNLOADS_DIR" ]; then
+  DOWNLOADS_DIR="$CONFIG_DIR/downloads/$ACCOUNT_NAME"
+fi
+mkdir -p "$CONFIG_DIR" "$DOWNLOADS_DIR"
+if [ "$(basename "$CONFIG_DIR")" = ".emails" ]; then
+  cat > "$CONFIG_DIR/.gitignore" <<'EOF'
+*
+!.gitignore
+EOF
+fi
+
+if [ -f "$CONFIG_FILE" ] && email_account_exists "$ACCOUNT_NAME"; then
+  echo "ERROR: email account already configured: $ACCOUNT_NAME" >&2
+  echo "Config: $CONFIG_FILE" >&2
+  exit 1
+fi
+
+escape_toml() {
+  sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+ESCAPED_PASSWORD="$(printf '%s' "$PASSWORD_VALUE" | escape_toml)"
+ESCAPED_ADDRESS="$(printf '%s' "$ADDRESS" | escape_toml)"
+ESCAPED_DISPLAY_NAME="$(printf '%s' "$DISPLAY_NAME" | escape_toml)"
+ESCAPED_IMAP_HOST="$(printf '%s' "$IMAP_HOST" | escape_toml)"
+ESCAPED_SMTP_HOST="$(printf '%s' "$SMTP_HOST" | escape_toml)"
+ESCAPED_DOWNLOADS_DIR="$(printf '%s' "$DOWNLOADS_DIR" | escape_toml)"
+
+GPG_BLOCK=""
+if [ -n "$GPG_LOCAL_USER" ]; then
+  ESCAPED_GPG_LOCAL_USER="$(printf '%s' "$GPG_LOCAL_USER" | escape_toml)"
+  GPG_BLOCK=$(cat <<GPG_EOF
+
+# GPG signing is opt-in per account.
+pgp.type = "commands"
+pgp.sign-cmd = "gpg --local-user '<$ESCAPED_GPG_LOCAL_USER>' --sign --quiet --armor"
+pgp.decrypt-cmd = "gpg --decrypt --quiet"
+pgp.verify-cmd = "gpg --verify --quiet"
+GPG_EOF
+)
+fi
+
+if [ "$SET_DEFAULT" = "true" ] && [ -f "$CONFIG_FILE" ]; then
+  tmp="${CONFIG_FILE}.tmp.$$"
+  awk '
+    $0 ~ /^\[accounts\./ { in_account = 1; print; next }
+    $0 ~ /^\[/ { in_account = 0; print; next }
+    in_account && $0 ~ /^[[:space:]]*default[[:space:]]*=/ { print "default = false"; next }
+    { print }
+  ' "$CONFIG_FILE" > "$tmp"
+  mv "$tmp" "$CONFIG_FILE"
+fi
+
+DEFAULT_VALUE="false"
+if [ "$SET_DEFAULT" = "true" ]; then
+  DEFAULT_VALUE="true"
+fi
+
+ACCOUNT_CONFIG=$(cat <<ACCOUNT_EOF
+[accounts.$ACCOUNT_NAME]
+default = $DEFAULT_VALUE
+email = "$ESCAPED_ADDRESS"
+display-name = "$ESCAPED_DISPLAY_NAME"
+
+backend.type = "imap"
+backend.host = "$ESCAPED_IMAP_HOST"
+backend.port = $IMAP_PORT
+backend.encryption.type = "tls"
+backend.login = "$ESCAPED_ADDRESS"
+backend.auth.type = "password"
+backend.auth.raw = "$ESCAPED_PASSWORD"
+
+message.send.backend.type = "smtp"
+message.send.backend.host = "$ESCAPED_SMTP_HOST"
+message.send.backend.port = $SMTP_PORT
+message.send.backend.encryption.type = "tls"
+message.send.backend.login = "$ESCAPED_ADDRESS"
+message.send.backend.auth.type = "password"
+message.send.backend.auth.raw = "$ESCAPED_PASSWORD"
+
+# Attachment downloads
+downloads-dir = "$ESCAPED_DOWNLOADS_DIR"$GPG_BLOCK
+ACCOUNT_EOF
+)
+
+if [ -f "$CONFIG_FILE" ] && [ -s "$CONFIG_FILE" ]; then
+  printf '\n%s\n' "$ACCOUNT_CONFIG" >> "$CONFIG_FILE"
+else
+  printf '%s\n' "$ACCOUNT_CONFIG" > "$CONFIG_FILE"
+fi
+chmod 600 "$CONFIG_FILE"
+
+printf '\nEmail account configured: %s\n' "$ACCOUNT_NAME"
+printf '  Address: %s\n' "$ADDRESS"
+printf '  Config:  %s\n' "$CONFIG_FILE"
+if [ "$SET_DEFAULT" = "true" ]; then
+  printf '  Default: yes\n'
+else
+  printf '  Default: no\n'
+fi
+if [ -n "$GPG_LOCAL_USER" ]; then
+  printf '  GPG:     enabled (%s)\n' "$GPG_LOCAL_USER"
+else
+  printf '  GPG:     disabled\n'
+fi

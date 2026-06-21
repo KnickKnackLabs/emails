@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Archive email message(s)"
 #USAGE arg "<id>" help="Message ID to archive"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
@@ -16,9 +17,9 @@ if [ -z "$ID" ]; then
 fi
 
 # Create Archive folder if it doesn't exist
-if ! "$HIMALAYA_BIN" folder list -a "$AGENT" | grep -q "^| Archive "; then
-  "$HIMALAYA_BIN" folder create -a "$AGENT" Archive
+if ! emails_himalaya folder list -a "$ACCOUNT" | grep -q "^| Archive "; then
+  emails_himalaya folder create -a "$ACCOUNT" Archive
 fi
 
-"$HIMALAYA_BIN" message move -a "$AGENT" Archive "$ID"
+emails_himalaya message move -a "$ACCOUNT" Archive "$ID"
 echo "Archived message $ID"

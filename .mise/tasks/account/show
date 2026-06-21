@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#MISE description="Show one configured email account"
+#USAGE arg "<account>" help="Account name"
+
+set -euo pipefail
+
+EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+ACCOUNT_NAME="$usage_account"
+if [ ! -f "$CONFIG_FILE" ] || ! email_account_exists "$ACCOUNT_NAME"; then
+  echo "Email account not configured: $ACCOUNT_NAME" >&2
+  echo "Config: $CONFIG_FILE" >&2
+  exit 1
+fi
+
+email="$(email_account_field "$ACCOUNT_NAME" email)"
+display_name="$(email_account_field "$ACCOUNT_NAME" display-name)"
+default="$(email_account_field "$ACCOUNT_NAME" default)"
+imap_host="$(email_account_field "$ACCOUNT_NAME" backend.host)"
+smtp_host="$(email_account_field "$ACCOUNT_NAME" message.send.backend.host)"
+downloads_dir="$(email_account_field "$ACCOUNT_NAME" downloads-dir)"
+sign_cmd="$(email_account_field "$ACCOUNT_NAME" pgp.sign-cmd)"
+
+printf 'Account:       %s\n' "$ACCOUNT_NAME"
+printf 'Address:       %s\n' "$email"
+printf 'Display name:  %s\n' "$display_name"
+printf 'Default:       %s\n' "${default:-false}"
+printf 'IMAP host:     %s\n' "$imap_host"
+printf 'SMTP host:     %s\n' "$smtp_host"
+printf 'Downloads dir: %s\n' "$downloads_dir"
+if [ -n "$sign_cmd" ]; then
+  printf 'GPG signing:   enabled\n'
+  printf 'Sign command:  %s\n' "$sign_cmd"
+else
+  printf 'GPG signing:   disabled\n'
+fi
+printf 'Config:        %s\n' "$CONFIG_FILE"

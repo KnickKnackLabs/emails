@@ -2,6 +2,7 @@
 #MISE description="Permanently delete all messages in a folder"
 #USAGE arg "[folder]" default="Trash" help="Folder to purge (default: Trash)"
 #USAGE flag "--force" default=#false help="Skip confirmation prompt"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
@@ -11,7 +12,7 @@ FOLDER="${usage_folder:-Trash}"
 FORCE="${usage_force:-false}"
 
 # Count messages in folder
-COUNT=$("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 2>/dev/null | tail -n +4 | wc -l | tr -d ' ')
+COUNT=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size 1000 2>/dev/null | tail -n +4 | wc -l | tr -d ' ')
 
 if [ "$COUNT" -eq 0 ]; then
   echo "$FOLDER is empty"
@@ -30,8 +31,8 @@ if [ "$FORCE" != "true" ]; then
 fi
 
 if [ "$FORCE" = "true" ]; then
-  "$HIMALAYA_BIN" folder purge -a "$AGENT" -y "$FOLDER"
+  emails_himalaya folder purge -a "$ACCOUNT" -y "$FOLDER"
 else
-  "$HIMALAYA_BIN" folder purge -a "$AGENT" "$FOLDER"
+  emails_himalaya folder purge -a "$ACCOUNT" "$FOLDER"
 fi
 echo "Purged $COUNT message(s) from $FOLDER"

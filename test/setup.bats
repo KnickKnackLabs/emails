@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for emails setup task
+# Tests for explicit account setup and account policy tasks
 
 bats_require_minimum_version 1.5.0
 load helpers
@@ -7,127 +7,114 @@ load helpers
 setup() {
   setup_mock_himalaya
   export HIMALAYA_CONFIG="$BATS_TEST_TMPDIR/himalaya/config.toml"
-  export EMAIL_PASSWORD="fake-password"
+  export GIT_AUTHOR_EMAIL="c0da@ricon.family"
+  unset AGENT_HOME
+  unset EMAIL_PASSWORD
 }
 
-@test "setup: configures account-specific GPG signing key exactly" {
+setup_account() {
+  local name="$1"
+  local address="$2"
+  shift 2
+  printf '%s' "password-$name" | emails account:setup "$name" \
+    --address "$address" \
+    --display-name "c0da" \
+    --imap-host mail.example.test \
+    --smtp-host smtp.example.test \
+    --password-stdin \
+    "$@"
+}
+
+@test "setup: deprecated wrapper points to account setup" {
   run emails setup c0da
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Email configured for c0da@ricon.family"* ]]
-  grep -qF 'pgp.sign-cmd = "gpg --local-user '\''<c0da@ricon.family>'\'' --sign --quiet --armor"' "$HIMALAYA_CONFIG"
-}
-
-@test "setup: reads password from stdin when requested" {
-  unset EMAIL_PASSWORD
-
-  run bash -c 'printf "%s" "stdin-password" | emails setup or --password-stdin'
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Email configured for or@ricon.family"* ]]
-  grep -qF 'backend.auth.raw = "stdin-password"' "$HIMALAYA_CONFIG"
-  grep -qF 'message.send.backend.auth.raw = "stdin-password"' "$HIMALAYA_CONFIG"
-}
-
-@test "setup: fails without an explicit password source" {
-  unset EMAIL_PASSWORD
-
-  run emails setup or
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *"Could not get email password for or"* ]]
-  [[ "$output" == *"Set EMAIL_PASSWORD env var manually"* ]]
-  [[ "$output" == *"emails setup or --password-stdin"* ]]
+  [[ "$output" == *"emails setup is deprecated"* ]]
+  [[ "$output" == *"emails account setup personal"* ]]
 }
 
-@test "setup: appended account uses its own exact signing key" {
-  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
-  cat > "$HIMALAYA_CONFIG" <<'EOF'
-[accounts.zeke]
-default = true
-email = "zeke@ricon.family"
-pgp.sign-cmd = "gpg --local-user '<zeke@ricon.family>' --sign --quiet --armor"
-EOF
-
-  run emails setup k7r2
+@test "account setup: configures explicit account without implicit default or GPG" {
+  run setup_account personal c0da@ricon.family
 
   [ "$status" -eq 0 ]
-  grep -qF '[accounts.k7r2]' "$HIMALAYA_CONFIG"
-  grep -qF 'pgp.sign-cmd = "gpg --local-user '\''<k7r2@ricon.family>'\'' --sign --quiet --armor"' "$HIMALAYA_CONFIG"
+  [[ "$output" == *"Email account configured: personal"* ]]
+  [[ "$output" == *"Default: no"* ]]
+  [[ "$output" == *"GPG:     disabled"* ]]
+  grep -qF '[accounts.personal]' "$HIMALAYA_CONFIG"
   grep -qF 'default = false' "$HIMALAYA_CONFIG"
+  grep -qF 'email = "c0da@ricon.family"' "$HIMALAYA_CONFIG"
+  grep -qF 'backend.auth.raw = "password-personal"' "$HIMALAYA_CONFIG"
+  run ! grep -qF 'pgp.sign-cmd' "$HIMALAYA_CONFIG"
 }
 
-@test "setup: migrates existing bare GPG signing command" {
-  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
-  cat > "$HIMALAYA_CONFIG" <<'EOF'
-[accounts.zeke]
-default = true
-email = "zeke@ricon.family"
-pgp.sign-cmd = "gpg --local-user '<zeke@ricon.family>' --sign --quiet --armor"
-
-[accounts.c0da]
-default = false
-email = "c0da@ricon.family"
-pgp.sign-cmd = "gpg --sign --quiet --armor"
-EOF
-
-  run emails setup c0da
+@test "account setup: can set default and enable account GPG" {
+  run setup_account kkl c0da@knacklabs.co --set-default --gpg-local-user c0da@knacklabs.co
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Updated GPG signing command for c0da@ricon.family"* ]]
+  [[ "$output" == *"Default: yes"* ]]
+  [[ "$output" == *"GPG:     enabled (c0da@knacklabs.co)"* ]]
+  grep -qF '[accounts.kkl]' "$HIMALAYA_CONFIG"
+  grep -qF 'default = true' "$HIMALAYA_CONFIG"
+  grep -qF 'email = "c0da@knacklabs.co"' "$HIMALAYA_CONFIG"
+  grep -qF 'pgp.sign-cmd = "gpg --local-user '\''<c0da@knacklabs.co>'\'' --sign --quiet --armor"' "$HIMALAYA_CONFIG"
+}
+
+@test "account setup: --set-default clears existing defaults" {
+  setup_account personal c0da@ricon.family --set-default >/dev/null
+
+  run setup_account kkl c0da@knacklabs.co --set-default
+
+  [ "$status" -eq 0 ]
+  awk '
+    $0 == "[accounts.personal]" { in_personal = 1; in_kkl = 0 }
+    $0 == "[accounts.kkl]" { in_personal = 0; in_kkl = 1 }
+    in_personal && $0 == "default = false" { personal = 1 }
+    in_kkl && $0 == "default = true" { kkl = 1 }
+    END { exit !(personal && kkl) }
+  ' "$HIMALAYA_CONFIG"
+}
+
+@test "account setup: rejects missing password stdin" {
+  run emails account:setup personal \
+    --address c0da@ricon.family \
+    --imap-host mail.example.test \
+    --smtp-host smtp.example.test
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"provide the password explicitly with --password-stdin"* ]]
+}
+
+@test "account default: sets exactly one default" {
+  setup_account personal c0da@ricon.family >/dev/null
+  setup_account kkl c0da@knacklabs.co >/dev/null
+
+  run emails account:default kkl
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Default email account set to: kkl"* ]]
+  awk '
+    $0 == "[accounts.personal]" { in_personal = 1; in_kkl = 0 }
+    $0 == "[accounts.kkl]" { in_personal = 0; in_kkl = 1 }
+    in_personal && $0 == "default = false" { personal = 1 }
+    in_kkl && $0 == "default = true" { kkl = 1 }
+    END { exit !(personal && kkl) }
+  ' "$HIMALAYA_CONFIG"
+}
+
+@test "account gpg: enable, status, and disable" {
+  setup_account personal c0da@ricon.family >/dev/null
+
+  run emails account:gpg:enable personal --local-user c0da@ricon.family
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"GPG signing enabled for personal"* ]]
   grep -qF 'pgp.sign-cmd = "gpg --local-user '\''<c0da@ricon.family>'\'' --sign --quiet --armor"' "$HIMALAYA_CONFIG"
-  run ! grep -qF 'pgp.sign-cmd = "gpg --sign --quiet --armor"' "$HIMALAYA_CONFIG"
-  [ "$(grep -c '^\[accounts\.c0da\]$' "$HIMALAYA_CONFIG")" -eq 1 ]
-}
 
-@test "setup: migrates existing unbracketed account-specific GPG signing command" {
-  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
-  cat > "$HIMALAYA_CONFIG" <<'EOF'
-[accounts.c0da]
-default = true
-email = "c0da@ricon.family"
-pgp.sign-cmd = "gpg --local-user c0da@ricon.family --sign --quiet --armor"
-EOF
-
-  run emails setup c0da
-
+  run emails account:gpg:status personal
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Updated GPG signing command for c0da@ricon.family"* ]]
-  grep -qF 'pgp.sign-cmd = "gpg --local-user '\''<c0da@ricon.family>'\'' --sign --quiet --armor"' "$HIMALAYA_CONFIG"
-  run ! grep -qF 'pgp.sign-cmd = "gpg --local-user c0da@ricon.family --sign --quiet --armor"' "$HIMALAYA_CONFIG"
-  [ "$(grep -c 'pgp.sign-cmd =' "$HIMALAYA_CONFIG")" -eq 1 ]
-}
+  [[ "$output" == *"GPG signing: enabled"* ]]
 
-@test "setup: leaves existing exact account-specific GPG signing command unchanged" {
-  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
-  cat > "$HIMALAYA_CONFIG" <<'EOF'
-[accounts.c0da]
-default = true
-email = "c0da@ricon.family"
-pgp.sign-cmd = "gpg --local-user '<c0da@ricon.family>' --sign --quiet --armor"
-EOF
-
-  run emails setup c0da
-
+  run emails account:gpg:disable personal
   [ "$status" -eq 0 ]
-  [[ "$output" == *"GPG signing command already account-specific or custom for c0da@ricon.family"* ]]
-  grep -qF 'pgp.sign-cmd = "gpg --local-user '\''<c0da@ricon.family>'\'' --sign --quiet --armor"' "$HIMALAYA_CONFIG"
-  [ "$(grep -c 'pgp.sign-cmd =' "$HIMALAYA_CONFIG")" -eq 1 ]
-}
-
-@test "setup: leaves custom GPG signing command unchanged" {
-  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
-  cat > "$HIMALAYA_CONFIG" <<'EOF'
-[accounts.c0da]
-default = true
-email = "c0da@ricon.family"
-pgp.sign-cmd = "custom-sign --identity c0da"
-EOF
-
-  run emails setup c0da
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"GPG signing command already account-specific or custom for c0da@ricon.family"* ]]
-  grep -qF 'pgp.sign-cmd = "custom-sign --identity c0da"' "$HIMALAYA_CONFIG"
-  run ! grep -qF 'pgp.sign-cmd = "gpg --local-user '\''<c0da@ricon.family>'\'' --sign --quiet --armor"' "$HIMALAYA_CONFIG"
+  [[ "$output" == *"GPG signing disabled for personal"* ]]
+  run ! grep -qF 'pgp.sign-cmd' "$HIMALAYA_CONFIG"
 }

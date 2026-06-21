@@ -1,6 +1,6 @@
 /** @jsxImportSource jsx-md */
 
-import { readFileSync, readdirSync, existsSync } from "fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "fs";
 import { join, resolve } from "path";
 
 import {
@@ -23,14 +23,24 @@ interface Command {
   description: string;
 }
 
+function collectTaskNames(dir = TASK_DIR, prefix = ""): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    if (entry.startsWith("_") || entry.startsWith(".")) return [];
+    const fullPath = join(dir, entry);
+    const name = prefix ? `${prefix}:${entry}` : entry;
+    if (statSync(fullPath).isDirectory()) return collectTaskNames(fullPath, name);
+    if (name === "test" || name === "test-integration") return [];
+    return [name];
+  });
+}
+
 function parseTask(name: string): Command {
-  const src = readFileSync(join(TASK_DIR, name), "utf-8");
+  const src = readFileSync(join(TASK_DIR, ...name.split(":")), "utf-8");
   const desc = src.match(/#MISE description="(.+)"/)?.[1] ?? "";
   return { name, description: desc };
 }
 
-const commands = readdirSync(TASK_DIR)
-  .filter((f) => !f.startsWith("_") && !f.startsWith(".") && f !== "test" && f !== "test-integration")
+const commands = collectTaskNames()
   .map(parseTask)
   .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -57,13 +67,13 @@ const readme = (
       <Heading level={1}>emails</Heading>
 
       <Paragraph>
-        <Bold>Email tooling for agents.</Bold>
+        <Bold>Email tooling for local accounts and personas.</Bold>
       </Paragraph>
 
       <Paragraph>
         {"Wraps "}
         <Link href="https://github.com/pimalaya/himalaya">himalaya</Link>
-        {" with agent identity, GPG signing, and quota management."}
+        {" with account setup, optional GPG signing, and quota management."}
       </Paragraph>
 
       <Badges>
@@ -79,14 +89,29 @@ const readme = (
       <CodeBlock lang="bash">{`shiv install emails`}</CodeBlock>
 
       <Paragraph>
-        {"First-time setup for an agent. Provide the password explicitly via environment or stdin; compose with your secret manager outside emails."}
+        {"First-time setup creates an explicit account in a Himalaya config. Provide the password via stdin; compose with your secret manager outside emails."}
       </Paragraph>
 
-      <CodeBlock lang="bash">{`# Environment variable
-EMAIL_PASSWORD="..." emails setup <agent-name>
+      <CodeBlock lang="bash">{`# Optional: choose a repo- or home-local config file
+export EMAILS_CONFIG="$PWD/.emails/himalaya.toml"
 
-# Or stdin, usually from a password manager command
-password-manager get <agent-name>/email-password | emails setup <agent-name> --password-stdin`}</CodeBlock>
+# Setup one account without making it default
+password-manager get mail/personal/password \\
+  | emails account setup personal \\
+      --address you@example.com \\
+      --imap-host imap.example.com \\
+      --smtp-host smtp.example.com \\
+      --password-stdin
+
+# Setup a default account with signing enabled
+password-manager get mail/work/password \\
+  | emails account setup work \\
+      --address you@company.com \\
+      --imap-host imap.company.com \\
+      --smtp-host smtp.company.com \\
+      --password-stdin \\
+      --set-default \\
+      --gpg-local-user you@company.com`}</CodeBlock>
     </Section>
 
     <Section title="Quick start">
@@ -96,8 +121,11 @@ emails list
 # Read a message
 emails read <id>
 
-# Send a GPG-signed email
+# Send an email
 emails send user@example.com "Subject" "Message body here."
+
+# Use a specific account/persona
+emails send --account work user@example.com "Subject" "Message body here."
 
 # Reply to a message
 emails reply <id> "Thanks, got it."
@@ -140,17 +168,26 @@ emails reply 42 --html -b '<h1>Thanks!</h1><p>Got it.</p>'`}</CodeBlock>
 
     <Section title="GPG signing">
       <Paragraph>
-        {"All outgoing messages are GPG-signed automatically using the exact account email key. "}
-        {"This provides a unified cryptographic identity — the same key signs git commits and emails, and a missing exact key fails instead of falling back to another agent's key."}
+        {"Signing is an explicit account policy. Accounts with "}
+        <Code>--gpg-local-user</Code>
+        {" configured sign by default; unsigned accounts send unsigned by default. Use "}
+        <Code>--sign</Code>
+        {" to require signing for one send, or "}
+        <Code>--no-sign</Code>
+        {" to suppress account-default signing."}
       </Paragraph>
+
+      <CodeBlock lang="bash">{`emails account gpg enable work --local-user you@company.com
+emails account gpg status work
+emails account gpg disable work`}</CodeBlock>
 
       <Paragraph>
         {"Incoming messages show signature status when read:"}
       </Paragraph>
 
-      <CodeBlock>{`From: brownie@ricon.family (✓ Signed by brownie <brownie@ricon.family>)
+      <CodeBlock>{`From: signed@example.com (✓ Signed by Person <signed@example.com>)
 From: unknown@example.com (⚠ Unsigned)
-From: imposter@ricon.family (✗ Bad signature)`}</CodeBlock>
+From: imposter@example.com (✗ Bad signature)`}</CodeBlock>
     </Section>
 
     <Section title="Body input">

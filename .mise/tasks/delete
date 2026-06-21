@@ -4,6 +4,7 @@
 #USAGE flag "--all" default=#false help="Delete all messages in folder"
 #USAGE flag "--permanent" default=#false help="Permanently delete (skip Trash, purge immediately)"
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to operate on (default: INBOX)"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
@@ -57,7 +58,7 @@ if [ "$ALL" = "true" ]; then
       IDS+=("$id")
       IDS_COUNT=$((IDS_COUNT + 1))
     fi
-  done < <("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size 1000 2>/dev/null \
+  done < <(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size 1000 2>/dev/null \
     | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
 
   if [ "$IDS_COUNT" -eq 0 ]; then
@@ -68,10 +69,10 @@ if [ "$ALL" = "true" ]; then
 fi
 
 if [ "$PERMANENT" = "true" ]; then
-  "$HIMALAYA_BIN" flag add -a "$AGENT" -f "$FOLDER" "${IDS[@]}" deleted
-  "$HIMALAYA_BIN" folder expunge -a "$AGENT" "$FOLDER"
+  emails_himalaya flag add -a "$ACCOUNT" -f "$FOLDER" "${IDS[@]}" deleted
+  emails_himalaya folder expunge -a "$ACCOUNT" "$FOLDER"
   echo "Permanently deleted $IDS_COUNT message(s) from $FOLDER"
 else
-  "$HIMALAYA_BIN" message delete -a "$AGENT" -f "$FOLDER" "${IDS[@]}"
+  emails_himalaya message delete -a "$ACCOUNT" -f "$FOLDER" "${IDS[@]}"
   echo "Moved $IDS_COUNT message(s) to Trash"
 fi

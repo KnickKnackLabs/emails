@@ -2,6 +2,7 @@
 #MISE description="Inspect email message structure and metadata"
 #USAGE arg "<id>" help="Message ID to inspect"
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to inspect from (default: INBOX)"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
@@ -16,18 +17,21 @@ if [ -z "$ID" ]; then
 fi
 
 NEED_IMAP=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+IMAP_HOST="$(email_account_field "$ACCOUNT" backend.host)"
+IMAP_PORT="$(email_account_field "$ACCOUNT" backend.port)"
+IMAP_PORT="${IMAP_PORT:-993}"
 
 # Fetch message metadata via IMAP
 RESULT=$({
   sleep 0.3
-  echo "a LOGIN ${AGENT}@ricon.family $PASS"
+  echo "a LOGIN ${ACCOUNT_EMAIL} $PASS"
   sleep 0.3
   echo "b SELECT \"$FOLDER\""
   sleep 0.3
   echo "c UID FETCH $ID (RFC822.SIZE BODYSTRUCTURE BODY[HEADER.FIELDS (From To Subject Date Content-Type)])"
   sleep 0.5
   echo "d LOGOUT"
-} | openssl s_client -connect mail.ricon.family:993 -quiet 2>/dev/null)
+} | openssl s_client -connect "$IMAP_HOST:$IMAP_PORT" -quiet 2>/dev/null)
 
 # Extract size
 SIZE=$(echo "$RESULT" | grep -oE 'RFC822\.SIZE [0-9]+' | awk '{print $2}')

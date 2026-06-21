@@ -2,13 +2,13 @@
 
 # emails
 
-**Email tooling for agents.**
+**Email tooling for local accounts and personas.**
 
-Wraps [himalaya](https://github.com/pimalaya/himalaya) with agent identity, GPG signing, and quota management.
+Wraps [himalaya](https://github.com/pimalaya/himalaya) with account setup, optional GPG signing, and quota management.
 
 ![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
-![commands: 16](https://img.shields.io/badge/commands-16-blue?style=flat)
+![commands: 23](https://img.shields.io/badge/commands-23-blue?style=flat)
 [![tests: 127 passing](https://img.shields.io/badge/tests-127%20passing-brightgreen?style=flat)](test/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
@@ -20,14 +20,29 @@ Wraps [himalaya](https://github.com/pimalaya/himalaya) with agent identity, GPG 
 shiv install emails
 ```
 
-First-time setup for an agent. Provide the password explicitly via environment or stdin; compose with your secret manager outside emails.
+First-time setup creates an explicit account in a Himalaya config. Provide the password via stdin; compose with your secret manager outside emails.
 
 ```bash
-# Environment variable
-EMAIL_PASSWORD="..." emails setup <agent-name>
+# Optional: choose a repo- or home-local config file
+export EMAILS_CONFIG="$PWD/.emails/himalaya.toml"
 
-# Or stdin, usually from a password manager command
-password-manager get <agent-name>/email-password | emails setup <agent-name> --password-stdin
+# Setup one account without making it default
+password-manager get mail/personal/password \
+  | emails account setup personal \
+      --address you@example.com \
+      --imap-host imap.example.com \
+      --smtp-host smtp.example.com \
+      --password-stdin
+
+# Setup a default account with signing enabled
+password-manager get mail/work/password \
+  | emails account setup work \
+      --address you@company.com \
+      --imap-host imap.company.com \
+      --smtp-host smtp.company.com \
+      --password-stdin \
+      --set-default \
+      --gpg-local-user you@company.com
 ```
 
 ## Quick start
@@ -39,8 +54,11 @@ emails list
 # Read a message
 emails read <id>
 
-# Send a GPG-signed email
+# Send an email
 emails send user@example.com "Subject" "Message body here."
+
+# Use a specific account/persona
+emails send --account work user@example.com "Subject" "Message body here."
 
 # Reply to a message
 emails reply <id> "Thanks, got it."
@@ -51,24 +69,31 @@ emails welcome
 
 ## Commands
 
-| Command          | Description                                                |
-| ---------------- | ---------------------------------------------------------- |
-| `emails archive` | Archive email message(s)                                   |
-| `emails compose` | Compose an email from a TSX file                           |
-| `emails delete`  | Delete email message(s) (moves to Trash)                   |
-| `emails export`  | Export emails to a directory                               |
-| `emails inspect` | Inspect email message structure and metadata               |
-| `emails list`    | List email messages                                        |
-| `emails purge`   | Permanently delete all messages in a folder                |
-| `emails quota`   | Show email storage quota usage                             |
-| `emails read`    | Read an email message                                      |
-| `emails reply`   | Reply to an email message                                  |
-| `emails send`    | Send a GPG-signed email                                    |
-| `emails setup`   | Setup email (himalaya) for an agent (one-time local setup) |
-| `emails sizes`   | Show per-folder email sizes and largest messages           |
-| `emails status`  | Check email (himalaya) setup status for an agent           |
-| `emails wait`    | Wait for new email to arrive                               |
-| `emails welcome` | Email intro and current status                             |
+| Command                      | Description                                                     |
+| ---------------------------- | --------------------------------------------------------------- |
+| `emails account:default`     | Set or clear the default email account                          |
+| `emails account:gpg:disable` | Disable GPG signing for an email account                        |
+| `emails account:gpg:enable`  | Enable GPG signing for an email account                         |
+| `emails account:gpg:status`  | Show GPG signing status for an email account                    |
+| `emails account:list`        | List configured email accounts                                  |
+| `emails account:setup`       | Setup an explicit email account in the selected Himalaya config |
+| `emails account:show`        | Show one configured email account                               |
+| `emails archive`             | Archive email message(s)                                        |
+| `emails compose`             | Compose an email from a TSX file                                |
+| `emails delete`              | Delete email message(s) (moves to Trash)                        |
+| `emails export`              | Export emails to a directory                                    |
+| `emails inspect`             | Inspect email message structure and metadata                    |
+| `emails list`                | List email messages                                             |
+| `emails purge`               | Permanently delete all messages in a folder                     |
+| `emails quota`               | Show email storage quota usage                                  |
+| `emails read`                | Read an email message                                           |
+| `emails reply`               | Reply to an email message                                       |
+| `emails send`                | Send an email                                                   |
+| `emails setup`               | Deprecated: use emails account setup                            |
+| `emails sizes`               | Show per-folder email sizes and largest messages                |
+| `emails status`              | Check email account setup status                                |
+| `emails wait`                | Wait for new email to arrive                                    |
+| `emails welcome`             | Email intro and current status                                  |
 
 ## HTML email
 
@@ -87,14 +112,20 @@ emails reply 42 --html -b '<h1>Thanks!</h1><p>Got it.</p>'
 
 ## GPG signing
 
-All outgoing messages are GPG-signed automatically using the exact account email key. This provides a unified cryptographic identity — the same key signs git commits and emails, and a missing exact key fails instead of falling back to another agent's key.
+Signing is an explicit account policy. Accounts with `--gpg-local-user` configured sign by default; unsigned accounts send unsigned by default. Use `--sign` to require signing for one send, or `--no-sign` to suppress account-default signing.
+
+```bash
+emails account gpg enable work --local-user you@company.com
+emails account gpg status work
+emails account gpg disable work
+```
 
 Incoming messages show signature status when read:
 
 ```
-From: brownie@ricon.family (✓ Signed by brownie <brownie@ricon.family>)
+From: signed@example.com (✓ Signed by Person <signed@example.com>)
 From: unknown@example.com (⚠ Unsigned)
-From: imposter@ricon.family (✗ Bad signature)
+From: imposter@example.com (✗ Bad signature)
 ```
 
 ## Body input

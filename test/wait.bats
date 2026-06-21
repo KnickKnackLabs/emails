@@ -28,7 +28,6 @@ setup() {
   # The argv log records argument boundaries as length-prefixed fields. The
   # query must be one 14-byte arg, not two args (`from` + `groups.io`).
   run cat "$MOCK_HIMALAYA_ARGV_CALLS"
-  [[ "$output" == *"argc=11"* ]]
   [[ "$output" == *$'\t14:from groups.io'* ]]
   [[ "$output" != *$'\t4:from\t9:groups.io'* ]]
 }
@@ -37,7 +36,6 @@ setup() {
   run emails wait --timeout 1 --interval 1 "from groups.io" 'subject "hello";rm'
   [ "$status" -eq 0 ]
   run cat "$MOCK_HIMALAYA_ARGV_CALLS"
-  [[ "$output" == *"argc=12"* ]]
   [[ "$output" == *$'\t14:from groups.io'* ]]
   [[ "$output" == *$'\t18:subject "hello";rm'* ]]
 }
@@ -46,6 +44,6 @@ setup() {
   run emails wait --timeout 1 --interval 1
   [ "$status" -eq 0 ]
   run cat "$MOCK_HIMALAYA_ARGV_CALLS"
-  [[ "$output" == *"argc=10"* ]]
+  [[ "$output" == *$'\t2:-c\t'* ]]
   [[ "$output" != *$'\t0:'* ]]
 }

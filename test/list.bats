@@ -9,7 +9,7 @@ setup() {
   setup_mock_himalaya
 }
 
-@test "list: calls himalaya envelope list with agent" {
+@test "list: calls himalaya envelope list with selected account" {
   set_mock_response "
 | ID  | FLAGS | SUBJECT    | FROM              | DATE       |
 |-----|-------|------------|-------------------|------------|
@@ -53,11 +53,11 @@ setup() {
   assert_himalaya_called "--page-size 10000"
 }
 
-@test "list: fails without agent identity" {
-  unset GIT_AUTHOR_EMAIL
-  export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
-  echo "" > "$GIT_CONFIG_GLOBAL"
-  GIT_CONFIG_COUNT=0 run emails list
+@test "list: fails without email config" {
+  rm -f "$HIMALAYA_CONFIG"
+
+  run emails list
+
   [ "$status" -ne 0 ]
-  [[ "$output" == *"No agent identity"* ]]
+  [[ "$output" == *"Email config not found"* ]]
 }
