@@ -107,12 +107,12 @@ fi
 
 if [ "$SET_DEFAULT" = "true" ] && [ -f "$CONFIG_FILE" ]; then
   tmp="${CONFIG_FILE}.tmp.$$"
-  awk '
+  awk -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
     $0 ~ /^\[accounts\./ { in_account = 1; print; next }
     $0 ~ /^\[/ { in_account = 0; print; next }
     in_account && $0 ~ /^[[:space:]]*default[[:space:]]*=/ { print "default = false"; next }
     { print }
-  ' "$CONFIG_FILE" > "$tmp"
+AWK
   mv "$tmp" "$CONFIG_FILE"
 fi
 

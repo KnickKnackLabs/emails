@@ -35,7 +35,7 @@ else
 fi
 
 tmp="${CONFIG_FILE}.tmp.$$"
-awk -v target="$ACCOUNT_NAME" -v clear="$CLEAR" '
+awk -v target="$ACCOUNT_NAME" -v clear="$CLEAR" -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
   $0 ~ /^\[accounts\./ {
     section = $0
     account = section
@@ -66,7 +66,7 @@ awk -v target="$ACCOUNT_NAME" -v clear="$CLEAR" '
       print "default = " (account == target ? "true" : "false")
     }
   }
-' "$CONFIG_FILE" > "$tmp"
+AWK
 mv "$tmp" "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 

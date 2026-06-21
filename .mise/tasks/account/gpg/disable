@@ -13,7 +13,7 @@ if [ ! -f "$CONFIG_FILE" ] || ! email_account_exists "$ACCOUNT_NAME"; then
 fi
 
 tmp="${CONFIG_FILE}.tmp.$$"
-awk -v target="$ACCOUNT_NAME" '
+awk -v target="$ACCOUNT_NAME" -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
   $0 ~ /^\[accounts\./ {
     account = $0
     sub(/^\[accounts\./, "", account)
@@ -25,7 +25,7 @@ awk -v target="$ACCOUNT_NAME" '
   $0 ~ /^\[/ { in_target = 0; print; next }
   in_target && $0 ~ /^[[:space:]]*pgp\./ { next }
   { print }
-' "$CONFIG_FILE" > "$tmp"
+AWK
 mv "$tmp" "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 
