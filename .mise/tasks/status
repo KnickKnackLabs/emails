@@ -4,6 +4,7 @@
 
 set -euo pipefail
 
+# shellcheck source=lib/email.sh
 EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
 HIMALAYA_BIN="${HIMALAYA:-himalaya}"
@@ -47,7 +48,10 @@ while IFS= read -r account; do
 done <<< "$accounts"
 
 unset EMAILS_NO_ACCOUNT_RESOLUTION
+# shellcheck source=lib/email.sh
 if source "$MISE_CONFIG_ROOT/lib/email.sh"; then
+  : "${ACCOUNT:?email account resolution failed}"
+  : "${ACCOUNT_EMAIL:?email account missing address}"
   echo ""
   echo "Resolved account: $ACCOUNT <$ACCOUNT_EMAIL>"
   echo "Testing connection..."

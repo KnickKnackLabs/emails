@@ -17,7 +17,9 @@
 
 set -euo pipefail
 
+# shellcheck source=lib/email.sh
 source "$MISE_CONFIG_ROOT/lib/email.sh"
+: "${ACCOUNT:?email account resolution failed}"
 
 json_string_field() {
   local file="$1"

@@ -10,8 +10,9 @@
 
 ![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
-![commands: 23](https://img.shields.io/badge/commands-23-blue?style=flat)
+![commands: 24](https://img.shields.io/badge/commands-24-blue?style=flat)
 [![tests: 127 passing](https://img.shields.io/badge/tests-127%20passing-brightgreen?style=flat)](test/)
+![lints: 9](https://img.shields.io/badge/lints-9-blue?style=flat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
 </div>
@@ -166,6 +167,7 @@ The README shows workflows, not a full command catalog. Use `emails <command> --
 | `emails read`               | Read an email message                                           |
 | `emails send`               | Send an email                                                   |
 | `emails reply`              | Reply to an email message                                       |
+| `emails doctor`             | Check local development setup                                   |
 
 ## Testing
 
@@ -177,6 +179,8 @@ The README shows workflows, not a full command catalog. Use `emails <command> --
 ```bash
 mise run test
 mise run test-integration
+mise run doctor
+codebase lint "$PWD"
 mise exec -- readme build --check
 ```
 
@@ -187,6 +191,7 @@ git clone https://github.com/KnickKnackLabs/emails.git
 cd emails
 mise trust && mise install
 mise run test
+mise run doctor
 ```
 
 Requires [himalaya](https://github.com/pimalaya/himalaya). For generated docs, edit `README.tsx` and run `mise exec -- readme build`.

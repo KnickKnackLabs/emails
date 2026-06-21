@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+# shellcheck disable=SC2317
 # Sourceable helper for email tasks.
 #
 # Sets:

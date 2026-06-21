@@ -14,6 +14,7 @@ echo "Email is for async communication with humans, teammates,"
 echo "or external services. Check regularly for requests or questions."
 echo ""
 
+# shellcheck source=lib/email.sh
 if ! source "$MISE_CONFIG_ROOT/lib/email.sh"; then
   echo "Status: ✗ not configured"
   echo ""
@@ -62,7 +63,9 @@ if emails_output=$(emails_himalaya envelope list -a "$ACCOUNT" -w 100 2>/dev/nul
   EMAILS=$(echo "$emails_output" | head -7)
 fi
 if [ -n "$EMAILS" ]; then
-  echo "$EMAILS" | sed 's/^/  /'
+  while IFS= read -r line; do
+    printf '  %s\n' "$line"
+  done <<< "$EMAILS"
 else
   echo "  (could not fetch - check connection)"
 fi

@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  GH_TOKEN: ${{ github.token }}
+  GITHUB_TOKEN: ${{ github.token }}
+  MISE_JOBS: 1
+
 jobs:
   test:
     strategy:
@@ -25,6 +30,9 @@ jobs:
         with:
           install: true
 
+      - name: Check whitespace
+        run: git diff --check
+
       - name: Run BATS tests
         run: mise run test
 
@@ -33,6 +41,9 @@ jobs:
 
       - name: Run component tests
         run: bun test src/
+
+      - name: Run codebase lints
+        run: codebase lint "$PWD"
 
       - name: Check README.md is up to date
         uses: KnickKnackLabs/readme@v0.3.1

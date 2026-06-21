@@ -16,6 +16,7 @@ import {
 const REPO_DIR = resolve(import.meta.dirname);
 const TASK_DIR = join(REPO_DIR, ".mise/tasks");
 const TEST_DIR = join(REPO_DIR, "test");
+const MISE_FILE = join(REPO_DIR, "mise.toml");
 
 interface Command {
   name: string;
@@ -58,9 +59,16 @@ function countTests(dir: string): number {
     }, 0);
 }
 
+function parseCodebaseLintRules(): string[] {
+  const content = readFileSync(MISE_FILE, "utf-8");
+  const lintBlock = content.match(/lint\s*=\s*\[([\s\S]*?)\]/m)?.[1] ?? "";
+  return [...lintBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+}
+
 const unitTests = countTests(TEST_DIR);
 const integrationTests = countTests(join(TEST_DIR, "integration"));
 const totalTests = unitTests + integrationTests;
+const lintRules = parseCodebaseLintRules();
 
 const coreCommands = [
   "account setup",
@@ -71,6 +79,7 @@ const coreCommands = [
   "read",
   "send",
   "reply",
+  "doctor",
 ].map((cliSuffix) => commands.find((cmd) => cmd.cli === `emails ${cliSuffix}`)).filter(Boolean) as Command[];
 
 const resolutionRows = [
@@ -114,6 +123,7 @@ const readme = (
         <Badge label="runtime" value="mise" color="7c3aed" href="https://mise.jdx.dev" />
         <Badge label="commands" value={`${commands.length}`} color="blue" />
         <Badge label="tests" value={`${totalTests} passing`} color="brightgreen" href="test/" />
+        <Badge label="lints" value={`${lintRules.length}`} color="blue" />
         <Badge label="License" value="MIT" color="blue" href="LICENSE" />
       </Badges>
     </Center>
@@ -332,6 +342,8 @@ emails send --to user@example.com --subject "With attachment" -b body.txt --atta
 
       <CodeBlock lang="bash">{`mise run test
 mise run test-integration
+mise run doctor
+codebase lint "$PWD"
 mise exec -- readme build --check`}</CodeBlock>
     </Section>
 
@@ -339,7 +351,8 @@ mise exec -- readme build --check`}</CodeBlock>
       <CodeBlock lang="bash">{`git clone https://github.com/KnickKnackLabs/emails.git
 cd emails
 mise trust && mise install
-mise run test`}</CodeBlock>
+mise run test
+mise run doctor`}</CodeBlock>
 
       <Paragraph>
         {"Requires "}

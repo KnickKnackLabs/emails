@@ -9,6 +9,7 @@
 
 set -euo pipefail
 
+# shellcheck source=lib/email.sh
 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
 LIMIT="${usage_limit:-10}"
@@ -17,20 +18,20 @@ PAGE="${usage_page:-1}"
 UNREAD="${usage_unread:-false}"
 COUNT_ONLY="${usage_count:-false}"
 
-# Build query for unread filter
-QUERY=""
+# Build query args for unread filter.
+QUERY_ARGS=()
 if [ "$UNREAD" = "true" ]; then
-  QUERY="not flag seen"
+  QUERY_ARGS=(not flag seen)
 fi
 
-# Fetch one extra to detect if there are more messages beyond the limit
-OUTPUT=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" -p "$PAGE" -w 120 --page-size "$((LIMIT + 1))" $QUERY)
+# Fetch one extra to detect if there are more messages beyond the limit.
+OUTPUT=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" -p "$PAGE" -w 120 --page-size "$((LIMIT + 1))" "${QUERY_ARGS[@]}")
 
 # Count data rows (skip 3 header rows: blank + column headers + separator)
 DATA_ROWS=$(echo "$OUTPUT" | tail -n +4 | wc -l | tr -d ' ')
 
 if [ "$COUNT_ONLY" = "true" ]; then
-  COUNT_OUTPUT=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" -w 120 --page-size 10000 $QUERY)
+  COUNT_OUTPUT=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" -w 120 --page-size 10000 "${QUERY_ARGS[@]}")
   echo "$COUNT_OUTPUT" | tail -n +4 | wc -l | tr -d ' '
 else
   echo "$OUTPUT" | head -$((LIMIT + 3))
