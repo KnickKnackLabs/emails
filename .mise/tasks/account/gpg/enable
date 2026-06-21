@@ -31,7 +31,8 @@ awk \
   -v target="$ACCOUNT_NAME" \
   -v sign_cmd="$SIGN_CMD" \
   -v decrypt_cmd="$DECRYPT_CMD" \
-  -v verify_cmd="$VERIFY_CMD" '
+  -v verify_cmd="$VERIFY_CMD" \
+  -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
   function emit_gpg() {
     if (in_target && emitted == 0) {
       print "pgp.type = \"commands\""
@@ -60,7 +61,7 @@ awk \
   in_target && $0 ~ /^[[:space:]]*pgp\./ { next }
   { print }
   END { emit_gpg() }
-' "$CONFIG_FILE" > "$tmp"
+AWK
 mv "$tmp" "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 
