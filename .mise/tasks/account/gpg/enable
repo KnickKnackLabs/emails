@@ -13,15 +13,13 @@ if [ -z "$LOCAL_USER" ]; then
   echo "ERROR: --local-user is required" >&2
   exit 1
 fi
+email_validate_gpg_local_user "$LOCAL_USER" || exit 1
 if [ ! -f "$CONFIG_FILE" ] || ! email_account_exists "$ACCOUNT_NAME"; then
   echo "Email account not configured: $ACCOUNT_NAME" >&2
   exit 1
 fi
 
-escape_toml() {
-  sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-ESCAPED_LOCAL_USER="$(printf '%s' "$LOCAL_USER" | escape_toml)"
+ESCAPED_LOCAL_USER="$(printf '%s' "$LOCAL_USER" | email_escape_toml_basic_string)"
 SIGN_CMD="gpg --local-user '<$ESCAPED_LOCAL_USER>' --sign --quiet --armor"
 DECRYPT_CMD="gpg --decrypt --quiet"
 VERIFY_CMD="gpg --verify --quiet"
@@ -42,7 +40,7 @@ awk \
       emitted = 1
     }
   }
-  $0 ~ /^\[accounts\./ {
+  $0 ~ /^\[accounts\.[A-Za-z0-9_-]+\]$/ {
     emit_gpg()
     account = $0
     sub(/^\[accounts\./, "", account)

@@ -74,6 +74,34 @@ setup_account() {
   ' "$HIMALAYA_CONFIG"
 }
 
+@test "account setup: rejects dotted account names" {
+  run setup_account personal.home c0da@ricon.family
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"account name must contain only letters, numbers, underscore, or dash"* ]]
+}
+
+@test "account setup: rejects non-numeric ports" {
+  run setup_account personal c0da@ricon.family --imap-port not-a-port
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--imap-port must be numeric"* ]]
+}
+
+@test "account setup: rejects newline/control characters in generated TOML strings" {
+  run bash -c 'printf "line1\nline2" | emails account:setup personal --address c0da@ricon.family --imap-host mail.example.test --smtp-host smtp.example.test --password-stdin'
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"password must not contain control characters or newlines"* ]]
+}
+
+@test "account setup: rejects unsafe GPG local-user selectors" {
+  run setup_account personal c0da@ricon.family --gpg-local-user "bad' ; touch /tmp/emails-pwn ; echo '"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--gpg-local-user may contain only"* ]]
+}
+
 @test "account setup: rejects missing password stdin" {
   run emails account:setup personal \
     --address c0da@ricon.family \
@@ -82,6 +110,33 @@ setup_account() {
 
   [ "$status" -ne 0 ]
   [[ "$output" == *"provide the password explicitly with --password-stdin"* ]]
+}
+
+@test "account default: ignores nested account tables" {
+  mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.personal]
+email = "person@example.test"
+
+[accounts.personal.backend]
+host = "imap.example.test"
+
+[accounts.kkl]
+email = "c0da@knacklabs.co"
+EOF
+
+  run emails account:default personal
+
+  [ "$status" -eq 0 ]
+  awk '
+    $0 == "[accounts.personal]" { section = "personal"; next }
+    $0 == "[accounts.personal.backend]" { section = "backend"; next }
+    $0 == "[accounts.kkl]" { section = "kkl"; next }
+    section == "personal" && $0 == "default = true" { personal = 1 }
+    section == "backend" && $0 ~ /^default[[:space:]]*=/ { bad_backend = 1 }
+    section == "kkl" && $0 == "default = false" { kkl = 1 }
+    END { exit !(personal && kkl && !bad_backend) }
+  ' "$HIMALAYA_CONFIG"
 }
 
 @test "account default: sets exactly one default" {
@@ -99,6 +154,15 @@ setup_account() {
     in_kkl && $0 == "default = true" { kkl = 1 }
     END { exit !(personal && kkl) }
   ' "$HIMALAYA_CONFIG"
+}
+
+@test "account gpg: rejects unsafe local-user selectors" {
+  setup_account personal c0da@ricon.family >/dev/null
+
+  run emails account:gpg:enable personal --local-user "bad' ; touch /tmp/emails-pwn ; echo '"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--gpg-local-user may contain only"* ]]
 }
 
 @test "account gpg: enable, status, and disable" {

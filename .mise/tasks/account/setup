@@ -27,8 +27,8 @@ SET_DEFAULT="${usage_set_default:-false}"
 GPG_LOCAL_USER="${usage_gpg_local_user:-}"
 DOWNLOADS_DIR="${usage_downloads_dir:-}"
 
-if ! printf '%s\n' "$ACCOUNT_NAME" | grep -Eq '^[A-Za-z0-9_.-]+$'; then
-  echo "ERROR: account name must contain only letters, numbers, dot, underscore, or dash" >&2
+if ! email_valid_account_name "$ACCOUNT_NAME"; then
+  echo "ERROR: account name must contain only letters, numbers, underscore, or dash" >&2
   exit 1
 fi
 if [ -z "$ADDRESS" ]; then
@@ -43,6 +43,8 @@ if [ -z "$IMAP_HOST" ] || [ -z "$SMTP_HOST" ]; then
   echo "ERROR: --imap-host and --smtp-host are required" >&2
   exit 1
 fi
+email_validate_port "--imap-port" "$IMAP_PORT" || exit 1
+email_validate_port "--smtp-port" "$SMTP_PORT" || exit 1
 if [ "${usage_password_stdin:-false}" != "true" ]; then
   echo "ERROR: provide the password explicitly with --password-stdin" >&2
   echo "Example: printf '%s' '<password>' | emails account setup $ACCOUNT_NAME --address $ADDRESS --imap-host $IMAP_HOST --smtp-host $SMTP_HOST --password-stdin" >&2
@@ -66,6 +68,16 @@ CONFIG_DIR="$(dirname "$CONFIG_FILE")"
 if [ -z "$DOWNLOADS_DIR" ]; then
   DOWNLOADS_DIR="$CONFIG_DIR/downloads/$ACCOUNT_NAME"
 fi
+
+email_validate_toml_string "password" "$PASSWORD_VALUE" || exit 1
+email_validate_toml_string "--address" "$ADDRESS" || exit 1
+email_validate_toml_string "--display-name" "$DISPLAY_NAME" || exit 1
+email_validate_toml_string "--imap-host" "$IMAP_HOST" || exit 1
+email_validate_toml_string "--smtp-host" "$SMTP_HOST" || exit 1
+email_validate_toml_string "--downloads-dir" "$DOWNLOADS_DIR" || exit 1
+if [ -n "$GPG_LOCAL_USER" ]; then
+  email_validate_gpg_local_user "$GPG_LOCAL_USER" || exit 1
+fi
 mkdir -p "$CONFIG_DIR" "$DOWNLOADS_DIR"
 if [ "$(basename "$CONFIG_DIR")" = ".emails" ]; then
   cat > "$CONFIG_DIR/.gitignore" <<'EOF'
@@ -80,20 +92,16 @@ if [ -f "$CONFIG_FILE" ] && email_account_exists "$ACCOUNT_NAME"; then
   exit 1
 fi
 
-escape_toml() {
-  sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
-ESCAPED_PASSWORD="$(printf '%s' "$PASSWORD_VALUE" | escape_toml)"
-ESCAPED_ADDRESS="$(printf '%s' "$ADDRESS" | escape_toml)"
-ESCAPED_DISPLAY_NAME="$(printf '%s' "$DISPLAY_NAME" | escape_toml)"
-ESCAPED_IMAP_HOST="$(printf '%s' "$IMAP_HOST" | escape_toml)"
-ESCAPED_SMTP_HOST="$(printf '%s' "$SMTP_HOST" | escape_toml)"
-ESCAPED_DOWNLOADS_DIR="$(printf '%s' "$DOWNLOADS_DIR" | escape_toml)"
+ESCAPED_PASSWORD="$(printf '%s' "$PASSWORD_VALUE" | email_escape_toml_basic_string)"
+ESCAPED_ADDRESS="$(printf '%s' "$ADDRESS" | email_escape_toml_basic_string)"
+ESCAPED_DISPLAY_NAME="$(printf '%s' "$DISPLAY_NAME" | email_escape_toml_basic_string)"
+ESCAPED_IMAP_HOST="$(printf '%s' "$IMAP_HOST" | email_escape_toml_basic_string)"
+ESCAPED_SMTP_HOST="$(printf '%s' "$SMTP_HOST" | email_escape_toml_basic_string)"
+ESCAPED_DOWNLOADS_DIR="$(printf '%s' "$DOWNLOADS_DIR" | email_escape_toml_basic_string)"
 
 GPG_BLOCK=""
 if [ -n "$GPG_LOCAL_USER" ]; then
-  ESCAPED_GPG_LOCAL_USER="$(printf '%s' "$GPG_LOCAL_USER" | escape_toml)"
+  ESCAPED_GPG_LOCAL_USER="$(printf '%s' "$GPG_LOCAL_USER" | email_escape_toml_basic_string)"
   GPG_BLOCK=$(cat <<GPG_EOF
 
 # GPG signing is opt-in per account.
@@ -108,7 +116,7 @@ fi
 if [ "$SET_DEFAULT" = "true" ] && [ -f "$CONFIG_FILE" ]; then
   tmp="${CONFIG_FILE}.tmp.$$"
   awk -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
-    $0 ~ /^\[accounts\./ { in_account = 1; print; next }
+    $0 ~ /^\[accounts\.[A-Za-z0-9_-]+\]$/ { in_account = 1; print; next }
     $0 ~ /^\[/ { in_account = 0; print; next }
     in_account && $0 ~ /^[[:space:]]*default[[:space:]]*=/ { print "default = false"; next }
     { print }

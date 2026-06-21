@@ -44,14 +44,62 @@ fi
 
 CONFIG_DIR="$(dirname "$CONFIG_FILE")"
 
+email_valid_account_name() {
+  local account="$1"
+  printf '%s\n' "$account" | grep -Eq '^[A-Za-z0-9_-]+$'
+}
+
+email_validate_toml_string() {
+  local label="$1"
+  local value="$2"
+  case "$value" in
+    *$'\n'*|*$'\r'*)
+      echo "ERROR: $label must not contain control characters or newlines" >&2
+      return 1
+      ;;
+  esac
+  if printf '%s' "$value" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    echo "ERROR: $label must not contain control characters or newlines" >&2
+    return 1
+  fi
+}
+
+email_validate_port() {
+  local label="$1"
+  local port="$2"
+  if ! printf '%s\n' "$port" | grep -Eq '^[0-9]+$'; then
+    echo "ERROR: $label must be numeric" >&2
+    return 1
+  fi
+  local port_num=$((10#$port))
+  if [ "$port_num" -lt 1 ] || [ "$port_num" -gt 65535 ]; then
+    echo "ERROR: $label must be between 1 and 65535" >&2
+    return 1
+  fi
+}
+
+email_validate_gpg_local_user() {
+  local value="$1"
+  email_validate_toml_string "--gpg-local-user" "$value" || return 1
+  if ! printf '%s\n' "$value" | grep -Eq '^[A-Za-z0-9_.@:+-]+$'; then
+    echo "ERROR: --gpg-local-user may contain only letters, numbers, dot, underscore, @, colon, plus, or dash" >&2
+    return 1
+  fi
+}
+
+email_escape_toml_basic_string() {
+  sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 email_account_names() {
   [ -f "$CONFIG_FILE" ] || return 0
-  grep -E '^\[accounts\.[^]]+\]$' "$CONFIG_FILE" 2>/dev/null \
+  grep -E '^\[accounts\.[A-Za-z0-9_-]+\]$' "$CONFIG_FILE" 2>/dev/null \
     | sed 's/^\[accounts\.//; s/\]$//'
 }
 
 email_account_exists() {
   local account="$1"
+  email_valid_account_name "$account" || return 1
   grep -qF "[accounts.$account]" "$CONFIG_FILE" 2>/dev/null
 }
 

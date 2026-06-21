@@ -14,7 +14,7 @@ fi
 
 tmp="${CONFIG_FILE}.tmp.$$"
 awk -v target="$ACCOUNT_NAME" -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
-  $0 ~ /^\[accounts\./ {
+  $0 ~ /^\[accounts\.[A-Za-z0-9_-]+\]$/ {
     account = $0
     sub(/^\[accounts\./, "", account)
     sub(/\]$/, "", account)

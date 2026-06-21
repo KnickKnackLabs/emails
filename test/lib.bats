@@ -53,6 +53,23 @@ EOF
   [ "$output" = "personal|person@example.test|/tmp/personal-downloads" ]
 }
 
+@test "lib: ignores nested account tables" {
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.personal]
+email = "person@example.test"
+
+[accounts.personal.backend]
+host = "imap.example.test"
+
+[accounts.personal.message.send.backend]
+host = "smtp.example.test"
+EOF
+
+  run bash -c 'source "$REPO_DIR/lib/email.sh" && printf "%s|%s" "$ACCOUNT" "$ACCOUNT_EMAIL"'
+  [ "$status" -eq 0 ]
+  [ "$output" = "personal|person@example.test" ]
+}
+
 @test "lib: fails when multiple accounts have no default" {
   cat > "$HIMALAYA_CONFIG" <<'EOF'
 [accounts.personal]
