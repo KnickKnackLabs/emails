@@ -18,20 +18,22 @@ PAGE="${usage_page:-1}"
 UNREAD="${usage_unread:-false}"
 COUNT_ONLY="${usage_count:-false}"
 
-# Build query args for unread filter.
-QUERY_ARGS=()
+# Build command argv explicitly so Bash 3.2 does not trip over empty arrays with set -u.
+LIST_CMD=(envelope list -a "$ACCOUNT" -f "$FOLDER" -p "$PAGE" -w 120 --page-size "$((LIMIT + 1))")
+COUNT_CMD=(envelope list -a "$ACCOUNT" -f "$FOLDER" -w 120 --page-size 10000)
 if [ "$UNREAD" = "true" ]; then
-  QUERY_ARGS=(not flag seen)
+  LIST_CMD+=(not flag seen)
+  COUNT_CMD+=(not flag seen)
 fi
 
 # Fetch one extra to detect if there are more messages beyond the limit.
-OUTPUT=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" -p "$PAGE" -w 120 --page-size "$((LIMIT + 1))" "${QUERY_ARGS[@]}")
+OUTPUT=$(emails_himalaya "${LIST_CMD[@]}")
 
 # Count data rows (skip 3 header rows: blank + column headers + separator)
 DATA_ROWS=$(echo "$OUTPUT" | tail -n +4 | wc -l | tr -d ' ')
 
 if [ "$COUNT_ONLY" = "true" ]; then
-  COUNT_OUTPUT=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" -w 120 --page-size 10000 "${QUERY_ARGS[@]}")
+  COUNT_OUTPUT=$(emails_himalaya "${COUNT_CMD[@]}")
   echo "$COUNT_OUTPUT" | tail -n +4 | wc -l | tr -d ' '
 else
   echo "$OUTPUT" | head -$((LIMIT + 3))
