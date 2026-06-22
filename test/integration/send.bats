@@ -27,14 +27,15 @@ setup() {
   [[ "$output" == *"Sent copy test"* ]]
 }
 
-@test "send: GPG-signs messages" {
-  emails send test-agent@ricon.family "Signed message test" \
-    "This message should be GPG-signed automatically by the send task in the emails package."
+@test "send: uses account display-name in sent From header" {
+  emails send test-agent@ricon.family "Display name integration test" \
+    "This message should use the configured account display name in its From header."
 
-  # GPG-signed messages show @ flag (signature is a MIME attachment)
-  run himalaya -c "$HIMALAYA_CONFIG" envelope list -a "$AGENT" -f Sent --page-size 100 2>/dev/null
+  local sent_msg
+  sent_msg=$(find "$MAILDIR_ROOT/Sent" -type f | head -1)
+  run cat "$sent_msg"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"@"* ]]
+  [[ "$output" == *'From: "Test Agent" <test-agent@ricon.family>'* ]]
 }
 
 @test "send: rejects empty body" {

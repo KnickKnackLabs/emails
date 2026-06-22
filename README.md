@@ -10,8 +10,8 @@
 
 ![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
-![commands: 24](https://img.shields.io/badge/commands-24-blue?style=flat)
-[![tests: 134 passing](https://img.shields.io/badge/tests-134%20passing-brightgreen?style=flat)](test/)
+![commands: 25](https://img.shields.io/badge/commands-25-blue?style=flat)
+[![tests: 138 passing](https://img.shields.io/badge/tests-138%20passing-brightgreen?style=flat)](test/)
 ![lints: 9](https://img.shields.io/badge/lints-9-blue?style=flat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
@@ -145,6 +145,19 @@ emails send --file email.json
 emails send --to user@example.com --subject "With attachment" -b body.txt --attach report.pdf
 ```
 
+## Business letters from templates
+
+For polished one-to-one business correspondence, start from a TSX template, edit it as the source artifact, render HTML, then send the generated file.
+
+```bash
+emails template business-letter > bob.tsx
+$EDITOR bob.tsx
+emails compose bob.tsx > bob.html
+emails send --account work --to client@example.com --subject "Follow-up" --html -b bob.html
+```
+
+The business-letter template uses table-based layout and inline styles for email-client compatibility, including a constrained-width letterhead, date/descriptor area, emphasized recommendation block, bullets, and signature.
+
 ## Safety rails
 
 - Passwords arrive through explicit stdin from the caller's chosen secret manager.
@@ -167,13 +180,15 @@ The README shows workflows, not a full command catalog. Use `emails <command> --
 | `emails read`               | Read an email message                                           |
 | `emails send`               | Send an email                                                   |
 | `emails reply`              | Reply to an email message                                       |
+| `emails template`           | Print a starter TSX email template                              |
+| `emails compose`            | Compose an email from a TSX file                                |
 | `emails doctor`             | Check local development setup                                   |
 
 ## Testing
 
-134 tests across two suites:
+138 tests across two suites:
 
-- **Unit tests (99)** — mock himalaya and test task logic in isolation
+- **Unit tests (103)** — mock himalaya and test task logic in isolation
 - **Integration tests (35)** — real himalaya against a local maildir backend, full round-trip, no network
 
 ```bash

@@ -71,6 +71,14 @@ setup() {
   assert_himalaya_called "template send"
 }
 
+@test "send: uses account display-name in From header" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send user@example.com "Display name test" "$body"
+  [ "$status" -eq 0 ]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *'From: "test-agent" <test-agent@ricon.family>'* ]]
+}
+
 # ============================================================================
 # HTML support
 # ============================================================================
