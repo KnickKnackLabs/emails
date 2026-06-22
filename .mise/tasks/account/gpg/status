@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Show GPG signing status for an email account"
+#USAGE arg "<account>" help="Account name"
+
+set -euo pipefail
+
+EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+ACCOUNT_NAME="$usage_account"
+
+if [ ! -f "$CONFIG_FILE" ] || ! email_account_exists "$ACCOUNT_NAME"; then
+  echo "Email account not configured: $ACCOUNT_NAME" >&2
+  exit 1
+fi
+
+sign_cmd="$(email_account_field "$ACCOUNT_NAME" pgp.sign-cmd)"
+if [ -n "$sign_cmd" ]; then
+  echo "GPG signing: enabled"
+  echo "Sign command: $sign_cmd"
+else
+  echo "GPG signing: disabled"
+fi

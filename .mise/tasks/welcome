@@ -1,60 +1,53 @@
 #!/usr/bin/env bash
 #MISE description="Email intro and current status"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
 export RUST_LOG=error
-HIMALAYA_BIN="${HIMALAYA:-himalaya}"
-
-# Determine current agent from environment or git config
-if [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then
-  AGENT=$(echo "$GIT_AUTHOR_EMAIL" | sed 's/@ricon\.family$//')
-elif git config user.email 2>/dev/null | grep -q '@ricon.family'; then
-  AGENT=$(git config user.email | sed 's/@ricon\.family$//')
-else
-  AGENT=""
-fi
 
 echo ""
 echo "Email"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "Email is for async communication - messages to humans, other agents,"
-echo "or external services. Check regularly for interview requests or questions."
+echo "Email is for async communication with humans, teammates,"
+echo "or external services. Check regularly for requests or questions."
 echo ""
 
-if [ -z "$AGENT" ]; then
-  echo "⚠ No agent identity detected. Run: eval \$(shimmer as <agent>)"
-  echo ""
-  exit 0
-fi
-
-EMAIL="${AGENT}@ricon.family"
-CONFIG_FILE="${HIMALAYA_CONFIG:-${HOME}/.config/himalaya/config.toml}"
-
-echo "Your email: $EMAIL"
-echo ""
-
-# Check if configured
-if [ ! -f "$CONFIG_FILE" ] || ! grep -q "accounts.$AGENT" "$CONFIG_FILE" 2>/dev/null; then
+# shellcheck source=lib/email.sh
+if ! source "$MISE_CONFIG_ROOT/lib/email.sh"; then
   echo "Status: ✗ not configured"
   echo ""
-  echo "Run: emails setup $AGENT"
+  echo "Create an account explicitly, for example:"
+  echo "  printf '%s' '<password>' | emails account setup personal --address <address> --imap-host <imap-host> --smtp-host <smtp-host> --password-stdin"
+  echo ""
   exit 0
 fi
 
+SIGN_CMD="$(email_account_field "$ACCOUNT" pgp.sign-cmd)"
+if [ -n "$SIGN_CMD" ]; then
+  GPG_STATUS="enabled"
+else
+  GPG_STATUS="disabled"
+fi
+
+echo "Account: $ACCOUNT"
+echo "Email:   $ACCOUNT_EMAIL"
+echo "Config:  $CONFIG_FILE"
+echo "GPG:     $GPG_STATUS"
+echo ""
 echo "Status: ✓ configured"
 echo ""
 
 # Show quota
-echo "Quota: $(mise run -q quota 2>/dev/null || echo "unknown")"
+echo "Quota: $(mise run -q quota --account "$ACCOUNT" 2>/dev/null || echo "unknown")"
 echo ""
 
 # Show folder summary
 echo "Folders:"
 {
   for folder in INBOX Sent Trash Archive; do
-    if folder_output=$("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$folder" --page-size 1000 2>/dev/null); then
+    if folder_output=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$folder" --page-size 1000 2>/dev/null); then
       count=$(echo "$folder_output" | tail -n +4 | wc -l | tr -d ' ')
     else
       count="?"
@@ -62,37 +55,36 @@ echo "Folders:"
     printf '%s|%s\n' "$folder" "$count"
   done
 } | gum table -s '|' -c 'Folder,Messages' -p
-echo ""
 
-# Show recent messages
+echo ""
 echo "Recent messages:"
-if command -v "$HIMALAYA_BIN" &> /dev/null; then
-  EMAILS=""
-  if emails_output=$("$HIMALAYA_BIN" envelope list -a "$AGENT" -w 100 2>/dev/null); then
-    EMAILS=$(echo "$emails_output" | head -7)
-  fi
-  if [ -n "$EMAILS" ]; then
-    echo "$EMAILS" | sed 's/^/  /'
-  else
-    echo "  (could not fetch - check connection)"
-  fi
-else
-  echo "  (himalaya not installed)"
+EMAILS=""
+if emails_output=$(emails_himalaya envelope list -a "$ACCOUNT" -w 100 2>/dev/null); then
+  EMAILS=$(echo "$emails_output" | head -7)
 fi
-echo ""
+if [ -n "$EMAILS" ]; then
+  while IFS= read -r line; do
+    printf '  %s\n' "$line"
+  done <<< "$EMAILS"
+else
+  echo "  (could not fetch - check connection)"
+fi
 
+echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Quick reference:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "  emails read <id>"
-echo "  emails reply <id> \"<body>\""
-echo "  emails send <to> \"<subject>\" <<'EOF'"
+echo "  emails list --account $ACCOUNT"
+echo "  emails read --account $ACCOUNT <id>"
+echo "  emails reply --account $ACCOUNT <id> \"<body>\""
+echo "  emails send --account $ACCOUNT --to user@example.com --subject \"Subject\" <<'EOF'"
 echo "  <content>"
 echo "  EOF"
 echo ""
 echo "  HTML email: --html flag on send/reply"
 echo "  Attachments: -a /path/file (on send or reply)"
+echo "  Accounts: emails account list"
 echo ""
 echo "  More: emails --help"
 echo ""

@@ -24,7 +24,11 @@ setup() {
   cat > "$MOCK_BIN/himalaya" <<'MOCK'
 #!/usr/bin/env bash
 echo "$@" >> "$MOCK_HIMALAYA_CALLS"
-if [ "$1 $2" = "message read" ]; then
+args=("$@")
+if [ "${args[0]:-}" = "-c" ]; then
+  args=("${args[@]:2}")
+fi
+if [ "${args[0]} ${args[1]}" = "message read" ]; then
   exit 1
 fi
 MOCK

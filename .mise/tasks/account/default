@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#MISE description="Set or clear the default email account"
+#USAGE arg "[account]" default="" help="Account name to make default"
+#USAGE flag "--clear" default=#false help="Clear all account defaults"
+
+set -euo pipefail
+
+EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+
+ACCOUNT_NAME="${usage_account:-}"
+CLEAR="${usage_clear:-false}"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "Email config not found: $CONFIG_FILE" >&2
+  exit 1
+fi
+
+if [ "$CLEAR" = "true" ]; then
+  if [ -n "$ACCOUNT_NAME" ]; then
+    echo "ERROR: provide either an account or --clear, not both" >&2
+    exit 1
+  fi
+else
+  if [ -z "$ACCOUNT_NAME" ]; then
+    echo "Usage: emails account default <account>" >&2
+    echo "       emails account default --clear" >&2
+    exit 1
+  fi
+  if ! email_account_exists "$ACCOUNT_NAME"; then
+    echo "Email account not configured: $ACCOUNT_NAME" >&2
+    echo "Configured accounts:" >&2
+    email_account_names | sed 's/^/  - /' >&2
+    exit 1
+  fi
+fi
+
+tmp="${CONFIG_FILE}.tmp.$$"
+awk -v target="$ACCOUNT_NAME" -v clear="$CLEAR" -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
+  $0 ~ /^\[accounts\.[A-Za-z0-9_-]+\]$/ {
+    section = $0
+    account = section
+    sub(/^\[accounts\./, "", account)
+    sub(/\]$/, "", account)
+    in_account = 1
+    saw_default = 0
+    print
+    next
+  }
+  $0 ~ /^\[/ {
+    if (in_account && saw_default == 0 && clear != "true") {
+      print "default = " (account == target ? "true" : "false")
+    }
+    in_account = 0
+    print
+    next
+  }
+  in_account && $0 ~ /^[[:space:]]*default[[:space:]]*=/ {
+    saw_default = 1
+    if (clear == "true") print "default = false"
+    else print "default = " (account == target ? "true" : "false")
+    next
+  }
+  { print }
+  END {
+    if (in_account && saw_default == 0 && clear != "true") {
+      print "default = " (account == target ? "true" : "false")
+    }
+  }
+AWK
+mv "$tmp" "$CONFIG_FILE"
+chmod 600 "$CONFIG_FILE"
+
+if [ "$CLEAR" = "true" ]; then
+  echo "Cleared default email account"
+else
+  echo "Default email account set to: $ACCOUNT_NAME"
+fi

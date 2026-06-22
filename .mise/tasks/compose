@@ -12,9 +12,10 @@ if [ -z "$FILE" ]; then
   exit 1
 fi
 
-# Resolve relative paths from caller's directory
+# Resolve relative paths from the caller's directory. Shiv exports the
+# package-scoped EMAILS_CALLER_PWD; CALLER_PWD is a legacy fallback.
 if [[ "$FILE" != /* ]]; then
-  FILE="${CALLER_PWD:-$(pwd)}/$FILE"
+  FILE="${EMAILS_CALLER_PWD:-${CALLER_PWD:-$(pwd)}}/$FILE"
 fi
 
 if [ ! -f "$FILE" ]; then

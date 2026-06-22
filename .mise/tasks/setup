@@ -1,171 +1,20 @@
 #!/usr/bin/env bash
-#MISE description="Setup email (himalaya) for an agent (one-time local setup)"
-#USAGE arg "<agent>" help="Agent name (e.g., quick, brownie)"
-#USAGE flag "--password-stdin" default=#false help="Read email password from stdin instead of EMAIL_PASSWORD"
+#MISE description="Deprecated: use emails account setup"
 
 set -euo pipefail
 
-# shellcheck disable=SC2154 # mise provides usage_agent from #USAGE.
-AGENT="$usage_agent"
-EMAIL="${AGENT}@ricon.family"
-MAIL_SERVER="mail.ricon.family"
+cat >&2 <<'EOF'
+emails setup is deprecated.
 
-CONFIG_FILE="${HIMALAYA_CONFIG:-${HOME}/.config/himalaya/config.toml}"
-CONFIG_DIR="$(dirname "$CONFIG_FILE")"
-LEGACY_SIGN_CMD='pgp.sign-cmd = "gpg --sign --quiet --armor"'
-OLD_ACCOUNT_SIGN_CMD="pgp.sign-cmd = \"gpg --local-user $EMAIL --sign --quiet --armor\""
-DESIRED_SIGN_CMD="pgp.sign-cmd = \"gpg --local-user '<$EMAIL>' --sign --quiet --armor\""
+Create explicit account configs instead:
+  printf '%s' '<password>' \
+    | emails account setup personal \
+        --address you@example.com \
+        --imap-host imap.example.com \
+        --smtp-host smtp.example.com \
+        --password-stdin \
+        --set-default
 
-migrate_legacy_sign_cmd() {
-  local tmp_config awk_status
-
-  tmp_config="${CONFIG_FILE}.tmp.$$"
-  awk_status=0
-
-  awk \
-    -v agent="$AGENT" \
-    -v legacy="$LEGACY_SIGN_CMD" \
-    -v old_account="$OLD_ACCOUNT_SIGN_CMD" \
-    -v desired="$DESIRED_SIGN_CMD" '
-      $0 ~ /^\[/ { in_account = ($0 == "[accounts." agent "]") }
-      in_account && ($0 == legacy || $0 == old_account) {
-        print desired
-        changed = 1
-        next
-      }
-      { print }
-      END { exit changed ? 0 : 42 }
-    ' "$CONFIG_FILE" > "$tmp_config" || awk_status=$?
-
-  case "$awk_status" in
-    0)
-      mv "$tmp_config" "$CONFIG_FILE"
-      return 0
-      ;;
-    42)
-      rm -f "$tmp_config"
-      return 1
-      ;;
-    *)
-      rm -f "$tmp_config"
-      echo "ERROR: failed to inspect GPG signing command in $CONFIG_FILE" >&2
-      return "$awk_status"
-      ;;
-  esac
-}
-
-# Check if himalaya is available
-if ! command -v himalaya &> /dev/null; then
-  echo "ERROR: himalaya command not found."
-  echo "Install with: mise install (himalaya is managed by mise)"
-  exit 1
-fi
-
-# Check if already configured. Older setup wrote either a bare `gpg --sign` or
-# an unbracketed `--local-user agent@ricon.family`. Both can pick another
-# agent's default/substring-matched key on multi-agent machines; migrate that
-# account in place instead of requiring manual reconfiguration.
-if [ -f "$CONFIG_FILE" ] && grep -qF "[accounts.$AGENT]" "$CONFIG_FILE" 2>/dev/null; then
-  migrate_status=0
-  migrate_legacy_sign_cmd || migrate_status=$?
-
-  case "$migrate_status" in
-    0)
-      echo "Updated GPG signing command for $EMAIL"
-      ;;
-    1)
-      echo "GPG signing command already account-specific or custom for $EMAIL"
-      ;;
-    *)
-      exit "$migrate_status"
-      ;;
-  esac
-
-  echo "Email already configured for $EMAIL"
-  echo "Config: $CONFIG_FILE"
-  echo ""
-  echo "To reconfigure, delete or edit the config file:"
-  echo "  rm $CONFIG_FILE"
-  echo "  \$EDITOR $CONFIG_FILE"
-  exit 0
-fi
-
-# Get password explicitly: stdin flag > env var > error.
-# Compose with any secret manager outside this tool by piping the password into setup.
-EMAIL_PASSWORD_VALUE=""
-if [ "${usage_password_stdin:-false}" = "true" ]; then
-  if [ -t 0 ]; then
-    echo "ERROR: --password-stdin was provided, but stdin is a terminal" >&2
-    echo "Pipe the password into setup, or use EMAIL_PASSWORD." >&2
-    exit 1
-  fi
-  EMAIL_PASSWORD_VALUE="$(cat)"
-elif [ -n "${EMAIL_PASSWORD:-}" ]; then
-  EMAIL_PASSWORD_VALUE="$EMAIL_PASSWORD"
-fi
-
-if [ -z "$EMAIL_PASSWORD_VALUE" ]; then
-  echo "ERROR: Could not get email password for $AGENT" >&2
-  echo "" >&2
-  echo "Options:" >&2
-  echo "  1. Set EMAIL_PASSWORD env var manually" >&2
-  echo "  2. Pipe a password: <command> | emails setup $AGENT --password-stdin" >&2
-  exit 1
-fi
-
-mkdir -p "$CONFIG_DIR"
-DOWNLOADS_DIR="${HOME}/agents/${AGENT}/downloads"
-mkdir -p "$DOWNLOADS_DIR"
-
-# Escape password for TOML basic string
-ESCAPED_PASSWORD=$(printf '%s' "$EMAIL_PASSWORD_VALUE" | sed 's/\\/\\\\/g; s/"/\\"/g')
-
-# Build the account config block
-ACCOUNT_CONFIG=$(cat <<ACCOUNT_EOF
-[accounts.$AGENT]
-default = true
-email = "$EMAIL"
-display-name = "$AGENT"
-
-backend.type = "imap"
-backend.host = "$MAIL_SERVER"
-backend.port = 993
-backend.encryption.type = "tls"
-backend.login = "$EMAIL"
-backend.auth.type = "password"
-backend.auth.raw = "$ESCAPED_PASSWORD"
-
-message.send.backend.type = "smtp"
-message.send.backend.host = "$MAIL_SERVER"
-message.send.backend.port = 465
-message.send.backend.encryption.type = "tls"
-message.send.backend.login = "$EMAIL"
-message.send.backend.auth.type = "password"
-message.send.backend.auth.raw = "$ESCAPED_PASSWORD"
-
-# Attachments download to agent workspace
-downloads-dir = "$HOME/agents/$AGENT/downloads"
-
-# GPG signing (requires gpg:setup first)
-pgp.type = "commands"
-pgp.sign-cmd = "gpg --local-user '<$EMAIL>' --sign --quiet --armor"
-pgp.decrypt-cmd = "gpg --decrypt --quiet"
-pgp.verify-cmd = "gpg --verify --quiet"
-ACCOUNT_EOF
-)
-
-# Write or append config
-if [ -f "$CONFIG_FILE" ]; then
-  sed -i.bak 's/^default = true$/default = false/' "$CONFIG_FILE"
-  rm -f "${CONFIG_FILE}.bak"
-  printf '\n%s\n' "$ACCOUNT_CONFIG" >> "$CONFIG_FILE"
-else
-  printf '%s\n' "$ACCOUNT_CONFIG" > "$CONFIG_FILE"
-fi
-
-echo ""
-echo "Email configured for $EMAIL"
-echo "  Config: $CONFIG_FILE"
-echo "  GPG signing: enabled (run gpg:setup first if not done)"
-echo ""
-echo "Test with: himalaya envelope list"
+Use EMAILS_CONFIG or HIMALAYA_CONFIG to choose a non-default config file.
+EOF
+exit 1

@@ -3,6 +3,7 @@
 #USAGE flag "-f --folder <folder>" default="" help="Show details for a specific folder only"
 #USAGE flag "--top <n>" default="5" help="Number of largest messages/groups to show per folder (default: 5)"
 #USAGE flag "--group-by <field>" default="" help="Group by sender or subject-prefix"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
@@ -20,6 +21,9 @@ case "$GROUP_BY" in
 esac
 
 NEED_IMAP=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+IMAP_HOST="$(email_account_field "$ACCOUNT" backend.host)"
+IMAP_PORT="$(email_account_field "$ACCOUNT" backend.port)"
+IMAP_PORT="${IMAP_PORT:-993}"
 
 if [ -n "$FOLDER" ]; then
   FOLDERS=("$FOLDER")
@@ -48,14 +52,14 @@ fetch_sizes() {
 
   {
     sleep 0.3
-    echo "a LOGIN ${AGENT}@ricon.family $PASS"
+    echo "a LOGIN ${ACCOUNT_EMAIL} $PASS"
     sleep 0.3
     echo "b SELECT \"$folder\""
     sleep 0.3
     echo "c UID FETCH 1:* ($fetch_items)"
     sleep 0.5
     echo "d LOGOUT"
-  } | openssl s_client -connect mail.ricon.family:993 -quiet 2>/dev/null
+  } | openssl s_client -connect "$IMAP_HOST:$IMAP_PORT" -quiet 2>/dev/null
 }
 
 extract_id_sizes() {
@@ -233,12 +237,12 @@ done
 if [ -z "$FOLDER" ]; then
   QUOTA_OUTPUT=$({
     sleep 0.3
-    echo "a LOGIN ${AGENT}@ricon.family $PASS"
+    echo "a LOGIN ${ACCOUNT_EMAIL} $PASS"
     sleep 0.3
     echo "b GETQUOTAROOT INBOX"
     sleep 0.3
     echo "c LOGOUT"
-  } | openssl s_client -connect mail.ricon.family:993 -quiet 2>/dev/null)
+  } | openssl s_client -connect "$IMAP_HOST:$IMAP_PORT" -quiet 2>/dev/null)
 
   if QUOTA_LINE=$(echo "$QUOTA_OUTPUT" | grep "^\* QUOTA"); then
     USED_KB=$(echo "$QUOTA_LINE" | grep -oE 'STORAGE [0-9]+ [0-9]+' | awk '{print $2}')

@@ -5,6 +5,7 @@
 #USAGE flag "-d --destination <path>" default="./emails" help="Directory to export to (default: ./emails)"
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to export from (default: INBOX)"
 #USAGE flag "-n --limit <limit>" default="500" help="Limit number of emails when using --all (default: 500)"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
@@ -47,7 +48,7 @@ if [ "$IDS_COUNT" -eq 0 ] || [ "$ALL" = "true" ]; then
       IDS+=("$id")
       IDS_COUNT=$((IDS_COUNT + 1))
     fi
-  done < <("$HIMALAYA_BIN" envelope list -a "$AGENT" -f "$FOLDER" --page-size "$LIMIT" 2>/dev/null | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
+  done < <(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size "$LIMIT" 2>/dev/null | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
 fi
 
 if [ "$IDS_COUNT" -eq 0 ]; then
@@ -60,7 +61,7 @@ echo "Exporting $IDS_COUNT message(s) from $FOLDER to $DEST..."
 EXPORTED=0
 FAILED=0
 for ID in "${IDS[@]}"; do
-  if "$HIMALAYA_BIN" message read -a "$AGENT" -f "$FOLDER" "$ID" > "$DEST/$ID.eml" 2>/dev/null; then
+  if emails_himalaya message read -a "$ACCOUNT" -f "$FOLDER" "$ID" > "$DEST/$ID.eml" 2>/dev/null; then
     EXPORTED=$((EXPORTED + 1))
   else
     echo "  Failed: $ID"

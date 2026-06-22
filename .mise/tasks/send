@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Send a GPG-signed email"
+#MISE description="Send an email"
 #USAGE arg "[to_arg]" default="" help="Recipient email address (or use --to)"
 #USAGE arg "[subject_arg]" default="" help="Email subject (or use --subject)"
 #USAGE arg "[body_arg]" default="" help="Message body (optional, or use -b flag or stdin)"
@@ -11,10 +11,15 @@
 #USAGE flag "-a --attach <attach>" var=#true default="" help="File path to attach (repeatable)"
 #USAGE flag "--allow-short" default=#false help="Allow short message bodies (under 50 chars)"
 #USAGE flag "--html" default=#false help="Send body as HTML (Content-Type: text/html)"
+#USAGE flag "--sign" default=#false help="Require GPG signing for this send"
+#USAGE flag "--no-sign" default=#false help="Send without GPG signing even if the account has GPG configured"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
+# shellcheck source=lib/email.sh
 source "$MISE_CONFIG_ROOT/lib/email.sh"
+: "${ACCOUNT:?email account resolution failed}"
 
 json_string_field() {
   local file="$1"
@@ -92,24 +97,28 @@ fi
 if [ -z "$TO" ] || [ -z "$SUBJECT" ]; then
   echo "Usage: emails send --to <to> --subject <subject> [body options]"
   echo ""
-  echo "Preferred (explicit flags — safe for agents):"
-  echo "  emails send --to admin@ricon.family --subject 'Update' -b body.txt"
-  echo "  emails send --to admin@ricon.family --subject 'Update' < body.txt"
+  echo "Preferred (explicit flags):"
+  echo "  emails send --to user@example.com --subject 'Update' -b body.txt"
+  echo "  emails send --to user@example.com --subject 'Update' < body.txt"
   echo "  emails send --file email.json"
   echo ""
   echo "Positional form (compatible, prefer flags for new scripts):"
-  echo "  emails send admin@ricon.family 'Update' 'inline body'"
+  echo "  emails send user@example.com 'Update' 'inline body'"
   echo ""
   echo "CC:"
-  echo "  emails send --to admin@ricon.family --cc other@ricon.family --subject 'Update' -b body.txt"
+  echo "  emails send --to user@example.com --cc other@example.com --subject 'Update' -b body.txt"
   echo ""
   echo "HTML:"
-  echo "  emails send --to admin@ricon.family --subject 'Update' --html -b file.html"
+  echo "  emails send --to user@example.com --subject 'Update' --html -b file.html"
+  echo ""
+  echo "Accounts and signing:"
+  echo "  emails send --account kkl --to client@example.com --subject 'Update' -b body.html --html"
+  echo "  emails send --sign --to user@example.com --subject 'Signed update' -b body.txt"
   echo ""
   echo "JSON file (to/subject/body/cc fields):"
   echo "  emails send --file email.json"
   echo ""
-  echo "Messages are GPG-signed automatically."
+  echo "Messages are signed only when the selected account has GPG configured, or --sign is used."
   exit 1
 fi
 
@@ -151,7 +160,7 @@ if [ -z "$BODY" ]; then
   BODY=$(cat)
 fi
 
-FROM="${AGENT}@ricon.family"
+FROM="${ACCOUNT_EMAIL}"
 
 if [ -z "${BODY:-}" ]; then
   echo "Error: Message body is required"
@@ -222,14 +231,44 @@ if [ "$CC_COUNT" -gt 0 ]; then
   CC_HEADER="Cc: $CC_ADDRS"
 fi
 
-# Send with GPG signing using MML template.
-"$HIMALAYA_BIN" template send -a "$AGENT" << EOF
+SIGN_CMD="$(email_account_field "$ACCOUNT" pgp.sign-cmd)"
+SIGN_MODE="auto"
+if [ "${usage_sign:-false}" = "true" ] && [ "${usage_no_sign:-false}" = "true" ]; then
+  echo "Error: use either --sign or --no-sign, not both" >&2
+  exit 1
+elif [ "${usage_sign:-false}" = "true" ]; then
+  SIGN_MODE="required"
+elif [ "${usage_no_sign:-false}" = "true" ]; then
+  SIGN_MODE="disabled"
+fi
+
+MML_MULTIPART_ATTR="type=mixed"
+case "$SIGN_MODE" in
+  required)
+    if [ -z "$SIGN_CMD" ]; then
+      echo "Error: account '$ACCOUNT' has no GPG signing configured" >&2
+      echo "Enable it with: emails account gpg enable $ACCOUNT --local-user <gpg-user>" >&2
+      exit 1
+    fi
+    MML_MULTIPART_ATTR="type=mixed sign=pgpmime"
+    ;;
+  auto)
+    if [ -n "$SIGN_CMD" ]; then
+      MML_MULTIPART_ATTR="type=mixed sign=pgpmime"
+    fi
+    ;;
+  disabled)
+    MML_MULTIPART_ATTR="type=mixed"
+    ;;
+esac
+
+emails_himalaya template send -a "$ACCOUNT" << EOF
 From: $FROM
 To: $TO
 ${CC_HEADER:+$CC_HEADER
 }Subject: $SUBJECT
 
-<#multipart type=mixed sign=pgpmime>
+<#multipart $MML_MULTIPART_ATTR>
 <#part type=$CONTENT_TYPE>
 $BODY
 <#/part>

@@ -13,5 +13,5 @@ export -f codebase_lint
   run codebase_lint
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"codebase: all 3 lint rule(s) passed"* ]]
+  [[ "$output" =~ codebase:\ all\ [0-9]+\ lint\ rule\(s\)\ passed ]]
 }

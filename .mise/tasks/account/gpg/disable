@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#MISE description="Disable GPG signing for an email account"
+#USAGE arg "<account>" help="Account name"
+
+set -euo pipefail
+
+EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+ACCOUNT_NAME="$usage_account"
+
+if [ ! -f "$CONFIG_FILE" ] || ! email_account_exists "$ACCOUNT_NAME"; then
+  echo "Email account not configured: $ACCOUNT_NAME" >&2
+  exit 1
+fi
+
+tmp="${CONFIG_FILE}.tmp.$$"
+awk -v target="$ACCOUNT_NAME" -f - "$CONFIG_FILE" > "$tmp" <<'AWK'
+  $0 ~ /^\[accounts\.[A-Za-z0-9_-]+\]$/ {
+    account = $0
+    sub(/^\[accounts\./, "", account)
+    sub(/\]$/, "", account)
+    in_target = (account == target)
+    print
+    next
+  }
+  $0 ~ /^\[/ { in_target = 0; print; next }
+  in_target && $0 ~ /^[[:space:]]*pgp\./ { next }
+  { print }
+AWK
+mv "$tmp" "$CONFIG_FILE"
+chmod 600 "$CONFIG_FILE"
+
+echo "GPG signing disabled for $ACCOUNT_NAME"

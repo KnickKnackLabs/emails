@@ -12,6 +12,7 @@ setup() {
   cat > "$HIMALAYA_CONFIG" <<EOF
 [accounts.test-agent]
 default = true
+email = "test-agent@ricon.family"
 EOF
 }
 

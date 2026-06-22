@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-#MISE description="Check email (himalaya) setup status for an agent"
-#USAGE arg "<agent>" help="Agent name (e.g., quick, brownie)"
+#MISE description="Check email account setup status"
+#USAGE flag "--account <account>" default="" help="Email account to check"
 
 set -euo pipefail
 
-AGENT="$usage_agent"
-EMAIL="${AGENT}@ricon.family"
-CONFIG_FILE="${HIMALAYA_CONFIG:-${HOME}/.config/himalaya/config.toml}"
+# shellcheck source=lib/email.sh
+EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
+
 HIMALAYA_BIN="${HIMALAYA:-himalaya}"
 
-echo "Email status for $AGENT ($EMAIL)"
+echo "Email status"
 echo ""
+echo "Config: $CONFIG_FILE"
 
-# Check if himalaya is available
 if ! command -v "$HIMALAYA_BIN" &> /dev/null; then
   echo "Himalaya installed: ✗"
   echo ""
@@ -21,30 +21,48 @@ if ! command -v "$HIMALAYA_BIN" &> /dev/null; then
 fi
 echo "Himalaya installed: ✓"
 
-# Check if config exists
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "Config exists: ✗"
   echo ""
-  echo "Run: emails setup $AGENT"
+  echo "Create one with: emails account setup <account> --address <address> --imap-host <imap-host> --smtp-host <smtp-host> --password-stdin"
   exit 1
 fi
 echo "Config exists: ✓"
 
-# Check if agent account is configured
-if ! grep -qF "[accounts.$AGENT]" "$CONFIG_FILE" 2>/dev/null; then
-  echo "Account configured: ✗"
-  echo ""
-  echo "Run: emails setup $AGENT"
+accounts="$(email_account_names)"
+if [ -z "$accounts" ]; then
+  echo "Accounts configured: ✗"
   exit 1
 fi
-echo "Account configured: ✓"
 
-# Try to connect (quick check)
-echo ""
-echo "Testing connection..."
-if "$HIMALAYA_BIN" envelope list -a "$AGENT" --max-width 0 2>/dev/null | head -1 > /dev/null; then
-  echo "Connection: ✓"
+echo "Accounts configured:"
+while IFS= read -r account; do
+  [ -n "$account" ] || continue
+  email="$(email_account_field "$account" email)"
+  default="$(email_account_field "$account" default)"
+  sign_cmd="$(email_account_field "$account" pgp.sign-cmd)"
+  marker=""
+  [ "$default" = "true" ] && marker=" default"
+  [ -n "$sign_cmd" ] && gpg="gpg" || gpg="no-gpg"
+  echo "  - $account <$email> ($gpg$marker)"
+done <<< "$accounts"
+
+unset EMAILS_NO_ACCOUNT_RESOLUTION
+# shellcheck source=lib/email.sh
+if source "$MISE_CONFIG_ROOT/lib/email.sh"; then
+  : "${ACCOUNT:?email account resolution failed}"
+  : "${ACCOUNT_EMAIL:?email account missing address}"
+  echo ""
+  echo "Resolved account: $ACCOUNT <$ACCOUNT_EMAIL>"
+  echo "Testing connection..."
+  if emails_himalaya envelope list -a "$ACCOUNT" --max-width 0 2>/dev/null | head -1 > /dev/null; then
+    echo "Connection: ✓"
+  else
+    echo "Connection: ✗ (check credentials)"
+    exit 1
+  fi
 else
-  echo "Connection: ✗ (check credentials)"
+  echo ""
+  echo "Account resolution: ✗"
   exit 1
 fi

@@ -2,7 +2,8 @@
 #MISE description="Read an email message"
 #USAGE arg "<id>" help="Message ID to read"
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to read from (default: INBOX)"
-#USAGE flag "-s --save-attachments" default=#false help="Download attachments to agent workspace"
+#USAGE flag "-s --save-attachments" default=#false help="Download attachments to the account downloads directory"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
@@ -31,7 +32,7 @@ extract_email() {
   fi
 }
 
-if "$HIMALAYA_BIN" message export --full -a "$AGENT" -f "$FOLDER" -d "$TMPDIR/msg.eml" "$ID" >/dev/null 2>&1; then
+if emails_himalaya message export --full -a "$ACCOUNT" -f "$FOLDER" -d "$TMPDIR/msg.eml" "$ID" >/dev/null 2>&1; then
   GPG_OUTPUT=$(gpg --verify "$TMPDIR/msg.eml" 2>&1) && GPG_EXIT=0 || GPG_EXIT=$?
 
   if [ "$GPG_EXIT" -eq 0 ] && echo "$GPG_OUTPUT" | grep -q "Good signature"; then
@@ -62,7 +63,7 @@ else
 fi
 
 # Read the message, stripping MML tags
-OUTPUT=$("$HIMALAYA_BIN" message read -a "$AGENT" -f "$FOLDER" "$ID" \
+OUTPUT=$(emails_himalaya message read -a "$ACCOUNT" -f "$FOLDER" "$ID" \
   | sed -E '/^[[:space:]]*<#\/?part/d; /^[[:space:]]*<#\/?multipart/d')
 
 if [ -n "$SIG_TAG" ]; then
@@ -87,12 +88,12 @@ fi
 
 if [ "$HAS_ATTACHMENT" = "true" ]; then
   if [ "${usage_save_attachments:-false}" = "true" ]; then
-    DOWNLOADS_DIR="${HOME}/agents/${AGENT}/downloads"
+    DOWNLOADS_DIR="$ACCOUNT_DOWNLOADS_DIR"
     mkdir -p "$DOWNLOADS_DIR"
 
     # mkdir -p ran above so the dir exists; ls should not fail here
     BEFORE=$(ls -1 "$DOWNLOADS_DIR")
-    "$HIMALAYA_BIN" attachment download -a "$AGENT" -f "$FOLDER" -o plain "$ID" >/dev/null 2>&1
+    emails_himalaya attachment download -a "$ACCOUNT" -f "$FOLDER" -o plain "$ID" >/dev/null 2>&1
     AFTER=$(ls -1 "$DOWNLOADS_DIR")
     NEW_FILES=$(comm -13 <(echo "$BEFORE" | sort) <(echo "$AFTER" | sort))
 
@@ -115,6 +116,6 @@ if [ "$HAS_ATTACHMENT" = "true" ]; then
     fi
   else
     echo ""
-    echo "This message has attachments. Use -s to download to ~/agents/$AGENT/downloads/"
+    echo "This message has attachments. Use -s to download to $ACCOUNT_DOWNLOADS_DIR/"
   fi
 fi

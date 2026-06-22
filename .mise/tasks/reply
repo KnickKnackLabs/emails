@@ -7,10 +7,15 @@
 #USAGE flag "-a --attach <attach>" var=#true default="" help="File path to attach (repeatable)"
 #USAGE flag "--allow-short" default=#false help="Allow short reply bodies (under 50 chars)"
 #USAGE flag "--html" default=#false help="Send reply as HTML (Content-Type: text/html)"
+#USAGE flag "--sign" default=#false help="Require GPG signing for this reply"
+#USAGE flag "--no-sign" default=#false help="Send without GPG signing even if the account has GPG configured"
+#USAGE flag "--account <account>" default="" help="Email account to use"
 
 set -euo pipefail
 
+# shellcheck source=lib/email.sh
 source "$MISE_CONFIG_ROOT/lib/email.sh"
+: "${ACCOUNT:?email account resolution failed}"
 
 ID="$usage_id"
 
@@ -97,7 +102,7 @@ if [ "$ATTACH_COUNT" -gt 0 ]; then
 fi
 
 # Get reply template headers
-REPLY_TEMPLATE=$("$HIMALAYA_BIN" template reply -a "$AGENT" "$ID" "")
+REPLY_TEMPLATE=$(emails_himalaya template reply -a "$ACCOUNT" "$ID" "")
 HEADERS=$(echo "$REPLY_TEMPLATE" | sed '/^$/q')
 
 # Check that the reply template has a recipient
@@ -123,16 +128,47 @@ if [ "$CC_COUNT" -gt 0 ]; then
   HEADERS=$(echo "$HEADERS" | sed "/^Subject:/a\\\nCc: $CC_ADDRS")
 fi
 
-# Build the full message with signed body and optional attachments
+SIGN_CMD="$(email_account_field "$ACCOUNT" pgp.sign-cmd)"
+SIGN_MODE="auto"
+if [ "${usage_sign:-false}" = "true" ] && [ "${usage_no_sign:-false}" = "true" ]; then
+  echo "Error: use either --sign or --no-sign, not both" >&2
+  exit 1
+elif [ "${usage_sign:-false}" = "true" ]; then
+  SIGN_MODE="required"
+elif [ "${usage_no_sign:-false}" = "true" ]; then
+  SIGN_MODE="disabled"
+fi
+
+MML_MULTIPART_ATTR="type=mixed"
+case "$SIGN_MODE" in
+  required)
+    if [ -z "$SIGN_CMD" ]; then
+      echo "Error: account '$ACCOUNT' has no GPG signing configured" >&2
+      echo "Enable it with: emails account gpg enable $ACCOUNT --local-user <gpg-user>" >&2
+      exit 1
+    fi
+    MML_MULTIPART_ATTR="type=mixed sign=pgpmime"
+    ;;
+  auto)
+    if [ -n "$SIGN_CMD" ]; then
+      MML_MULTIPART_ATTR="type=mixed sign=pgpmime"
+    fi
+    ;;
+  disabled)
+    MML_MULTIPART_ATTR="type=mixed"
+    ;;
+esac
+
+# Build the full message with account-policy body and optional attachments
 {
   echo "$HEADERS"
   echo ""
-  echo "<#multipart type=mixed sign=pgpmime>"
+  echo "<#multipart $MML_MULTIPART_ATTR>"
   echo "<#part type=$CONTENT_TYPE>"
   echo "$BODY"
   echo "<#/part>"
   echo "$ATTACH_MML"
   echo "<#/multipart>"
-} | "$HIMALAYA_BIN" template send -a "$AGENT"
+} | emails_himalaya template send -a "$ACCOUNT"
 
 echo "Reply sent"

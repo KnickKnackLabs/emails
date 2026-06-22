@@ -18,8 +18,7 @@ export -f emails
 # Set up a fake agent identity and himalaya config
 # Uses HIMALAYA_CONFIG env var to avoid touching real HOME
 setup_agent() {
-  export GIT_AUTHOR_EMAIL="test-agent@ricon.family"
-  export BATS_AGENT="test-agent"
+  export BATS_ACCOUNT="test-agent"
 
   # Create himalaya config in test tmpdir
   export HIMALAYA_CONFIG="$BATS_TEST_TMPDIR/himalaya/config.toml"
@@ -79,7 +78,12 @@ echo "$@" >> "$MOCK_HIMALAYA_CALLS"
   printf '\n'
 } >> "$MOCK_HIMALAYA_ARGV_CALLS"
 
-if [ "${1:-} ${2:-}" = "template send" ]; then
+args=("$@")
+if [ "${args[0]:-}" = "-c" ]; then
+  args=("${args[@]:2}")
+fi
+
+if [ "${args[0]:-} ${args[1]:-}" = "template send" ]; then
   cat >> "$MOCK_HIMALAYA_STDIN"
 fi
 

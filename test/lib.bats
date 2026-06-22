@@ -1,90 +1,109 @@
 #!/usr/bin/env bats
-# Tests for lib/email.sh — agent identity detection and config validation
+# Tests for lib/email.sh — config and account resolution
 
 bats_require_minimum_version 1.5.0
 
 setup() {
-  # Use HIMALAYA_CONFIG to isolate from real config
   export HIMALAYA_CONFIG="$BATS_TEST_TMPDIR/himalaya/config.toml"
   mkdir -p "$(dirname "$HIMALAYA_CONFIG")"
+  unset EMAILS_CONFIG
+  unset EMAILS_ACCOUNT
 }
 
-# ============================================================================
-# Identity detection
-# ============================================================================
+write_config() {
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.personal]
+default = false
+email = "person@example.test"
+backend.auth.raw = "personal-pass"
+downloads-dir = "/tmp/personal-downloads"
 
-@test "lib: detects agent from GIT_AUTHOR_EMAIL" {
-  export GIT_AUTHOR_EMAIL="myagent@ricon.family"
-  cat > "$HIMALAYA_CONFIG" <<EOF
-[accounts.myagent]
+[accounts.kkl]
 default = true
+email = "c0da@knacklabs.co"
+backend.auth.raw = "kkl-pass"
+EOF
+}
+
+@test "lib: resolves the only configured account without default" {
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.personal]
+default = false
+email = "person@example.test"
 EOF
 
-  # Source the lib and check AGENT is set
-  run bash -c 'source "$REPO_DIR/lib/email.sh" && echo "$AGENT"'
+  run bash -c 'source "$REPO_DIR/lib/email.sh" && printf "%s|%s" "$ACCOUNT" "$ACCOUNT_EMAIL"'
   [ "$status" -eq 0 ]
-  [ "$output" = "myagent" ]
+  [ "$output" = "personal|person@example.test" ]
 }
 
-@test "lib: fails without identity" {
-  unset GIT_AUTHOR_EMAIL
-  # Ensure git config doesn't have a ricon email
-  export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
-  echo "" > "$GIT_CONFIG_GLOBAL"
+@test "lib: resolves default account when multiple accounts exist" {
+  write_config
 
-  GIT_CONFIG_COUNT=0 run bash -c 'source "$REPO_DIR/lib/email.sh"'
+  run bash -c 'source "$REPO_DIR/lib/email.sh" && printf "%s|%s" "$ACCOUNT" "$ACCOUNT_EMAIL"'
+  [ "$status" -eq 0 ]
+  [ "$output" = "kkl|c0da@knacklabs.co" ]
+}
+
+@test "lib: EMAILS_ACCOUNT selects account" {
+  write_config
+
+  run bash -c 'EMAILS_ACCOUNT=personal source "$REPO_DIR/lib/email.sh" && printf "%s|%s|%s" "$ACCOUNT" "$ACCOUNT_EMAIL" "$ACCOUNT_DOWNLOADS_DIR"'
+  [ "$status" -eq 0 ]
+  [ "$output" = "personal|person@example.test|/tmp/personal-downloads" ]
+}
+
+@test "lib: ignores nested account tables" {
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.personal]
+email = "person@example.test"
+
+[accounts.personal.backend]
+host = "imap.example.test"
+
+[accounts.personal.message.send.backend]
+host = "smtp.example.test"
+EOF
+
+  run bash -c 'source "$REPO_DIR/lib/email.sh" && printf "%s|%s" "$ACCOUNT" "$ACCOUNT_EMAIL"'
+  [ "$status" -eq 0 ]
+  [ "$output" = "personal|person@example.test" ]
+}
+
+@test "lib: fails when multiple accounts have no default" {
+  cat > "$HIMALAYA_CONFIG" <<'EOF'
+[accounts.personal]
+default = false
+email = "person@example.test"
+
+[accounts.kkl]
+default = false
+email = "c0da@knacklabs.co"
+EOF
+
+  run bash -c 'source "$REPO_DIR/lib/email.sh"'
   [ "$status" -ne 0 ]
-  [[ "$output" == *"No agent identity"* ]]
+  [[ "$output" == *"Multiple email accounts configured and no default is set"* ]]
 }
 
 @test "lib: fails without himalaya config" {
-  export GIT_AUTHOR_EMAIL="myagent@ricon.family"
   rm -f "$HIMALAYA_CONFIG"
 
-  GIT_CONFIG_COUNT=0 run bash -c 'source "$REPO_DIR/lib/email.sh"'
+  run bash -c 'source "$REPO_DIR/lib/email.sh"'
   [ "$status" -ne 0 ]
-  [[ "$output" == *"not configured"* ]]
+  [[ "$output" == *"Email config not found"* ]]
 }
-
-@test "lib: fails when agent account missing from config" {
-  export GIT_AUTHOR_EMAIL="myagent@ricon.family"
-  # Config exists but has a different account
-  cat > "$HIMALAYA_CONFIG" <<EOF
-[accounts.otheragent]
-default = true
-EOF
-
-  GIT_CONFIG_COUNT=0 run bash -c 'source "$REPO_DIR/lib/email.sh"'
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"not configured"* ]]
-}
-
-# ============================================================================
-# IMAP password extraction
-# ============================================================================
 
 @test "lib: extracts IMAP password when NEED_IMAP=1" {
-  export GIT_AUTHOR_EMAIL="myagent@ricon.family"
-  cat > "$HIMALAYA_CONFIG" <<EOF
-[accounts.myagent]
-default = true
-backend.auth.type = "password"
-backend.auth.raw = "s3cret-pass"
-EOF
+  write_config
 
   run bash -c 'NEED_IMAP=1 source "$REPO_DIR/lib/email.sh" && echo "$PASS"'
   [ "$status" -eq 0 ]
-  [ "$output" = "s3cret-pass" ]
+  [ "$output" = "kkl-pass" ]
 }
 
 @test "lib: PASS is empty when NEED_IMAP not set" {
-  export GIT_AUTHOR_EMAIL="myagent@ricon.family"
-  cat > "$HIMALAYA_CONFIG" <<EOF
-[accounts.myagent]
-default = true
-backend.auth.type = "password"
-backend.auth.raw = "s3cret-pass"
-EOF
+  write_config
 
   run bash -c 'source "$REPO_DIR/lib/email.sh" && echo "PASS=${PASS:-empty}"'
   [ "$status" -eq 0 ]
