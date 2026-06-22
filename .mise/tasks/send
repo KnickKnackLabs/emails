@@ -160,7 +160,7 @@ if [ -z "$BODY" ]; then
   BODY=$(cat)
 fi
 
-FROM="${ACCOUNT_EMAIL}"
+FROM="${ACCOUNT_FROM:-$ACCOUNT_EMAIL}"
 
 if [ -z "${BODY:-}" ]; then
   echo "Error: Message body is required"

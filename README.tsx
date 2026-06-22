@@ -79,6 +79,8 @@ const coreCommands = [
   "read",
   "send",
   "reply",
+  "example",
+  "compose",
   "doctor",
 ].map((cliSuffix) => commands.find((cmd) => cmd.cli === `emails ${cliSuffix}`)).filter(Boolean) as Command[];
 
@@ -291,6 +293,21 @@ emails wait                       # block until new mail arrives`}</CodeBlock>
 cat body.html | emails send --account work --to client@example.com --subject "HTML update" --html
 emails send --file email.json
 emails send --to user@example.com --subject "With attachment" -b body.txt --attach report.pdf`}</CodeBlock>
+    </Section>
+
+    <Section title="Business letters from examples">
+      <Paragraph>
+        {"For polished one-to-one business correspondence, start from a TSX example, edit it as the source artifact, render HTML, then send the generated file."}
+      </Paragraph>
+
+      <CodeBlock lang="bash">{`emails example business-letter > bob.tsx
+$EDITOR bob.tsx
+emails compose bob.tsx > bob.html
+emails send --account work --to client@example.com --subject "Follow-up" --html -b bob.html`}</CodeBlock>
+
+      <Paragraph>
+        {"The business-letter example uses table-based layout and inline styles for email-client compatibility, including a constrained-width letterhead, date/descriptor area, emphasized recommendation block, bullets, and signature."}
+      </Paragraph>
     </Section>
 
     <Section title="Safety rails">

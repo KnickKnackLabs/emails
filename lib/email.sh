@@ -91,6 +91,25 @@ email_escape_toml_basic_string() {
   sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+email_escape_header_quoted_string() {
+  sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+email_format_mailbox() {
+  local email="$1"
+  local display_name="$2"
+  local escaped_display_name
+
+  if [ -z "$display_name" ]; then
+    printf '%s\n' "$email"
+    return 0
+  fi
+
+  email_validate_toml_string "display-name" "$display_name" || return 1
+  escaped_display_name="$(printf '%s' "$display_name" | email_escape_header_quoted_string)"
+  printf '"%s" <%s>\n' "$escaped_display_name" "$email"
+}
+
 email_account_names() {
   [ -f "$CONFIG_FILE" ] || return 0
   grep -E '^\[accounts\.[A-Za-z0-9_-]+\]$' "$CONFIG_FILE" 2>/dev/null \
@@ -222,6 +241,8 @@ ACCOUNT_EMAIL="$(email_account_field "$ACCOUNT" email)"
 if [ -z "$ACCOUNT_EMAIL" ]; then
   email_fail "Email account '$ACCOUNT' is missing an email field in $CONFIG_FILE"
 fi
+ACCOUNT_DISPLAY_NAME="$(email_account_field "$ACCOUNT" display-name)"
+ACCOUNT_FROM="$(email_format_mailbox "$ACCOUNT_EMAIL" "$ACCOUNT_DISPLAY_NAME")" || email_fail "Email account '$ACCOUNT' has an invalid display-name in $CONFIG_FILE"
 ACCOUNT_DOWNLOADS_DIR="$(email_account_field "$ACCOUNT" downloads-dir)"
 if [ -z "$ACCOUNT_DOWNLOADS_DIR" ]; then
   ACCOUNT_DOWNLOADS_DIR="$CONFIG_DIR/downloads/$ACCOUNT"
