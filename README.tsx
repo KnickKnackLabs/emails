@@ -79,7 +79,7 @@ const coreCommands = [
   "read",
   "send",
   "reply",
-  "template",
+  "example",
   "compose",
   "doctor",
 ].map((cliSuffix) => commands.find((cmd) => cmd.cli === `emails ${cliSuffix}`)).filter(Boolean) as Command[];
@@ -295,18 +295,18 @@ emails send --file email.json
 emails send --to user@example.com --subject "With attachment" -b body.txt --attach report.pdf`}</CodeBlock>
     </Section>
 
-    <Section title="Business letters from templates">
+    <Section title="Business letters from examples">
       <Paragraph>
-        {"For polished one-to-one business correspondence, start from a TSX template, edit it as the source artifact, render HTML, then send the generated file."}
+        {"For polished one-to-one business correspondence, start from a TSX example, edit it as the source artifact, render HTML, then send the generated file."}
       </Paragraph>
 
-      <CodeBlock lang="bash">{`emails template business-letter > bob.tsx
+      <CodeBlock lang="bash">{`emails example business-letter > bob.tsx
 $EDITOR bob.tsx
 emails compose bob.tsx > bob.html
 emails send --account work --to client@example.com --subject "Follow-up" --html -b bob.html`}</CodeBlock>
 
       <Paragraph>
-        {"The business-letter template uses table-based layout and inline styles for email-client compatibility, including a constrained-width letterhead, date/descriptor area, emphasized recommendation block, bullets, and signature."}
+        {"The business-letter example uses table-based layout and inline styles for email-client compatibility, including a constrained-width letterhead, date/descriptor area, emphasized recommendation block, bullets, and signature."}
       </Paragraph>
     </Section>
 

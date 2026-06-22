@@ -1,13 +1,13 @@
 /** @jsxImportSource emails */
-// Business letter template — one-to-one business correspondence.
+// Business letter example — one-to-one business correspondence.
 //
 // Usage:
-//   emails template business-letter > draft.tsx
+//   emails example business-letter > draft.tsx
 //   $EDITOR draft.tsx
 //   emails compose draft.tsx > draft.html
 //   emails send --account work --to client@example.com --subject "Follow-up" --html -b draft.html
 //
-// This template uses table-based layout and inline styles for broad email-client
+// This example uses table-based layout and inline styles for broad email-client
 // compatibility. Keep the source TSX as the editable artifact; treat the HTML as
 // generated output.
 

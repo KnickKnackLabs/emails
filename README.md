@@ -145,18 +145,18 @@ emails send --file email.json
 emails send --to user@example.com --subject "With attachment" -b body.txt --attach report.pdf
 ```
 
-## Business letters from templates
+## Business letters from examples
 
-For polished one-to-one business correspondence, start from a TSX template, edit it as the source artifact, render HTML, then send the generated file.
+For polished one-to-one business correspondence, start from a TSX example, edit it as the source artifact, render HTML, then send the generated file.
 
 ```bash
-emails template business-letter > bob.tsx
+emails example business-letter > bob.tsx
 $EDITOR bob.tsx
 emails compose bob.tsx > bob.html
 emails send --account work --to client@example.com --subject "Follow-up" --html -b bob.html
 ```
 
-The business-letter template uses table-based layout and inline styles for email-client compatibility, including a constrained-width letterhead, date/descriptor area, emphasized recommendation block, bullets, and signature.
+The business-letter example uses table-based layout and inline styles for email-client compatibility, including a constrained-width letterhead, date/descriptor area, emphasized recommendation block, bullets, and signature.
 
 ## Safety rails
 
@@ -180,7 +180,7 @@ The README shows workflows, not a full command catalog. Use `emails <command> --
 | `emails read`               | Read an email message                                           |
 | `emails send`               | Send an email                                                   |
 | `emails reply`              | Reply to an email message                                       |
-| `emails template`           | Print a starter TSX email template                              |
+| `emails example`            | Print a starter TSX email example                               |
 | `emails compose`            | Compose an email from a TSX file                                |
 | `emails doctor`             | Check local development setup                                   |
 

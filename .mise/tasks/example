@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+#MISE description="Print a starter TSX email example"
+#USAGE arg "[name]" default="" help="Example name to print (omit to list examples)"
+
+set -euo pipefail
+
+EXAMPLE_NAME="${usage_name:-}"
+EXAMPLE_DIR="$MISE_CONFIG_ROOT/examples"
+
+list_examples() {
+  find "$EXAMPLE_DIR" -maxdepth 1 -type f -name '*.tsx' -print \
+    | sed 's#.*/##; s#\.tsx$##' \
+    | sort
+}
+
+if [ -z "$EXAMPLE_NAME" ]; then
+  cat <<EOF
+Available email examples:
+$(list_examples | sed 's/^/  - /')
+
+Usage:
+  emails example business-letter > draft.tsx
+  emails compose draft.tsx > draft.html
+EOF
+  exit 0
+fi
+
+if ! printf '%s\n' "$EXAMPLE_NAME" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+  echo "ERROR: example name must contain only letters, numbers, underscore, or dash" >&2
+  exit 1
+fi
+
+EXAMPLE_FILE="$EXAMPLE_DIR/$EXAMPLE_NAME.tsx"
+if [ ! -f "$EXAMPLE_FILE" ]; then
+  echo "ERROR: unknown example: $EXAMPLE_NAME" >&2
+  echo "Available examples:" >&2
+  list_examples | sed 's/^/  - /' >&2
+  exit 1
+fi
+
+cat "$EXAMPLE_FILE"
