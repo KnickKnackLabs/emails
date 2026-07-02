@@ -112,12 +112,17 @@ if [ -n "${usage_file:-}" ]; then
   fi
 fi
 
-if [ -n "${usage_to:-}" ]; then
-  TOS=()
-  TO_COUNT=0
-  while IFS= read -r to; do
-    [ -n "$to" ] && TOS+=("$to") && TO_COUNT=$((TO_COUNT + 1))
-  done < <(printf '%s' "${usage_to:-}" | xargs printf '%s\n')
+_TO_FLAGS=()
+_TO_FCOUNT=0
+while IFS= read -r to; do
+  if [ -n "$to" ]; then
+    _TO_FLAGS+=("$to")
+    _TO_FCOUNT=$((_TO_FCOUNT + 1))
+  fi
+done < <(printf '%s' "${usage_to:-}" | xargs printf '%s\n')
+if [ "$_TO_FCOUNT" -gt 0 ]; then
+  TOS=("${_TO_FLAGS[@]}")
+  TO_COUNT="$_TO_FCOUNT"
 fi
 if [ -n "${usage_subject:-}" ]; then
   SUBJECT="$usage_subject"
