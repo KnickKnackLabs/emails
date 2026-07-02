@@ -21,7 +21,7 @@ email_fail() {
 }
 
 find_upward_email_config() {
-  local dir="$PWD"
+  local dir="${EMAILS_CALLER_PWD:-${CALLER_PWD:-$PWD}}"
   while [ -n "$dir" ] && [ "$dir" != "/" ]; do
     if [ -f "$dir/.emails/himalaya.toml" ]; then
       printf '%s\n' "$dir/.emails/himalaya.toml"
