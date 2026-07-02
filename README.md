@@ -186,9 +186,9 @@ The README shows workflows, not a full command catalog. Use `emails <command> --
 
 ## Testing
 
-138 tests across two suites:
+145 tests across two suites:
 
-- **Unit tests (103)** — mock himalaya and test task logic in isolation
+- **Unit tests (110)** — mock himalaya and test task logic in isolation
 - **Integration tests (35)** — real himalaya against a local maildir backend, full round-trip, no network
 
 ```bash
