@@ -3,7 +3,7 @@
 #USAGE arg "[to_arg]" default="" help="Recipient email address (or use --to)"
 #USAGE arg "[subject_arg]" default="" help="Email subject (or use --subject)"
 #USAGE arg "[body_arg]" default="" help="Message body (optional, or use -b flag or stdin)"
-#USAGE flag "--to <to>" default="" help="Recipient email address (preferred over positional)"
+#USAGE flag "--to <to>" var=#true default="" help="Recipient email address (repeatable, preferred over positional)"
 #USAGE flag "--subject <subject>" default="" help="Email subject (preferred over positional)"
 #USAGE flag "-b --body <body>" default="" help="Message body (alternative to positional arg)"
 #USAGE flag "--file <file>" default="" help="JSON file with to/subject/body/cc fields"
@@ -33,16 +33,17 @@ json_string_field() {
   ' "$file"
 }
 
-json_cc_lines() {
+json_string_or_array_lines() {
   local file="$1"
-  jq -r '
-    if has("cc") and .cc != null then
-      if (.cc | type) == "array" then
-        if all(.cc[]; type == "string") then .cc[]
-        else error("cc array must contain only strings")
+  local field="$2"
+  jq -r --arg field "$field" '
+    if has($field) and .[$field] != null then
+      if (.[$field] | type) == "array" then
+        if all(.[$field][]; type == "string") then .[$field][]
+        else error($field + " array must contain only strings")
         end
-      elif (.cc | type) == "string" then .cc
-      else error("cc must be a string or array of strings")
+      elif (.[$field] | type) == "string" then .[$field]
+      else error($field + " must be a string or array of strings")
       end
     else empty end
   ' "$file"
@@ -50,7 +51,12 @@ json_cc_lines() {
 
 # Resolution order: positionals < --file < explicit flags. The GHL guard only
 # applies to subjects resolved from the ambiguous positional slot.
-TO="${usage_to_arg:-}"
+TOS=()
+TO_COUNT=0
+if [ -n "${usage_to_arg:-}" ]; then
+  TOS+=("$usage_to_arg")
+  TO_COUNT=$((TO_COUNT + 1))
+fi
 SUBJECT="${usage_subject_arg:-}"
 SUBJECT_SOURCE=""
 [ -n "$SUBJECT" ] && SUBJECT_SOURCE="positional"
@@ -63,7 +69,7 @@ if [ -n "${usage_file:-}" ]; then
     echo "Error: File not found: $usage_file"
     exit 1
   fi
-  if ! _file_to=$(json_string_field "$usage_file" to); then
+  if ! FILE_TO_LINES=$(json_string_or_array_lines "$usage_file" to); then
     echo "Error: invalid --file to field"
     exit 1
   fi
@@ -75,26 +81,46 @@ if [ -n "${usage_file:-}" ]; then
     echo "Error: invalid --file body field"
     exit 1
   fi
-  if ! FILE_CC_LINES=$(json_cc_lines "$usage_file"); then
+  if ! FILE_CC_LINES=$(json_string_or_array_lines "$usage_file" cc); then
     echo "Error: invalid --file cc field"
     exit 1
   fi
-  [ -n "$_file_to" ] && TO="$_file_to"
+  if [ -n "$FILE_TO_LINES" ]; then
+    TOS=()
+    TO_COUNT=0
+    while IFS= read -r to; do
+      [ -n "$to" ] && TOS+=("$to") && TO_COUNT=$((TO_COUNT + 1))
+    done <<< "$FILE_TO_LINES"
+  fi
   if [ -n "$_file_subject" ]; then
     SUBJECT="$_file_subject"
     SUBJECT_SOURCE="file"
   fi
 fi
 
-if [ -n "${usage_to:-}" ]; then
-  TO="$usage_to"
+_TO_FLAGS=()
+_TO_FCOUNT=0
+while IFS= read -r to; do
+  if [ -n "$to" ]; then
+    _TO_FLAGS+=("$to")
+    _TO_FCOUNT=$((_TO_FCOUNT + 1))
+  fi
+done < <(printf '%s' "${usage_to:-}" | xargs printf '%s\n')
+if [ "$_TO_FCOUNT" -gt 0 ]; then
+  TOS=("${_TO_FLAGS[@]}")
+  TO_COUNT="$_TO_FCOUNT"
 fi
 if [ -n "${usage_subject:-}" ]; then
   SUBJECT="$usage_subject"
   SUBJECT_SOURCE="flag"
 fi
 
-if [ -z "$TO" ] || [ -z "$SUBJECT" ]; then
+TO_ADDRS=""
+if [ "$TO_COUNT" -gt 0 ]; then
+  TO_ADDRS=$(printf '%s\n' "${TOS[@]}" | paste -sd ',' - | sed 's/,/, /g')
+fi
+
+if [ -z "$TO_ADDRS" ] || [ -z "$SUBJECT" ]; then
   echo "Usage: emails send --to <to> --subject <subject> [body options]"
   echo ""
   echo "Preferred (explicit flags):"
@@ -128,7 +154,7 @@ if [ "$SUBJECT_SOURCE" = "positional" ] && echo "$SUBJECT" | grep -qE '^[a-zA-Z0
   echo "Error: subject looks like an email address: '$SUBJECT'"
   echo "Did you accidentally pass two recipients positionally?"
   echo "Use --cc for additional recipients:"
-  echo "  emails send --to $TO --cc $SUBJECT --subject 'Your subject here' ..."
+  echo "  emails send --to ${TOS[0]} --cc $SUBJECT --subject 'Your subject here' ..."
   exit 1
 fi
 
@@ -264,7 +290,7 @@ esac
 
 emails_himalaya template send -a "$ACCOUNT" << EOF
 From: $FROM
-To: $TO
+To: $TO_ADDRS
 ${CC_HEADER:+$CC_HEADER
 }Subject: $SUBJECT
 
@@ -277,7 +303,7 @@ $ATTACH_MML
 EOF
 
 if [ -n "${CC_HEADER:-}" ]; then
-  echo "Sent to $TO (cc: $CC_ADDRS)"
+  echo "Sent to $TO_ADDRS (cc: $CC_ADDRS)"
 else
-  echo "Sent to $TO"
+  echo "Sent to $TO_ADDRS"
 fi

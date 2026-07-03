@@ -9,10 +9,6 @@ setup() {
   setup_mock_himalaya
 }
 
-# ============================================================================
-# Argument validation
-# ============================================================================
-
 @test "send: fails without arguments" {
   run emails send
   [ "$status" -ne 0 ]
@@ -79,10 +75,6 @@ setup() {
   [[ "$mml" == *'From: "test-agent" <test-agent@ricon.family>'* ]]
 }
 
-# ============================================================================
-# HTML support
-# ============================================================================
-
 @test "send: passes text/plain content type by default" {
   local body="This is a message body that is definitely longer than fifty characters for testing."
   run emails send user@example.com "Subject" "$body"
@@ -100,10 +92,6 @@ setup() {
   assert_himalaya_called "template send"
 }
 
-# ============================================================================
-# Body from file
-# ============================================================================
-
 @test "send: reads body from file path" {
   local body_file="$BATS_TEST_TMPDIR/body.txt"
   echo "This is a message body loaded from a file, long enough to pass the minimum length check." > "$body_file"
@@ -111,10 +99,6 @@ setup() {
   [ "$status" -eq 0 ]
   assert_himalaya_called "template send"
 }
-
-# ============================================================================
-# Body from stdin
-# ============================================================================
 
 @test "send: reads body from stdin" {
   local body="This is a message body piped via stdin that is definitely longer than fifty characters."
@@ -130,10 +114,6 @@ setup() {
   [[ "$output" != *"body is required"* ]]
   assert_himalaya_called "template send"
 }
-
-# ============================================================================
-# Attachments
-# ============================================================================
 
 @test "send: rejects missing attachment file" {
   local body="This is a message body that is definitely longer than fifty characters for testing."
@@ -151,10 +131,6 @@ setup() {
   [[ "$output" == *"Attaching: doc.pdf"* ]]
 }
 
-# ============================================================================
-# GHL safety check
-# ============================================================================
-
 @test "send: rejects subject that looks like an email address" {
   local body="This is a message body that is definitely longer than fifty characters for testing."
   run emails send user@example.com candi@example.com "$body"
@@ -163,10 +139,6 @@ setup() {
   [[ "$output" == *"--cc"* ]]
   [ ! -s "$MOCK_HIMALAYA_CALLS" ]
 }
-
-# ============================================================================
-# Explicit --to / --subject flags
-# ============================================================================
 
 @test "send: --to and --subject flags work" {
   local body="This is a message body that is definitely longer than fifty characters for testing."
@@ -197,10 +169,6 @@ setup() {
   [[ "$output" == *"Sent to user@example.com"* ]]
   assert_himalaya_called "template send"
 }
-
-# ============================================================================
-# --file structured input
-# ============================================================================
 
 @test "send: --file JSON input sends message" {
   local spec="$BATS_TEST_TMPDIR/email.json"
@@ -325,9 +293,93 @@ JSON
   [[ "$output" == *"already provides a body"* ]]
 }
 
-# ============================================================================
-# Config
-# ============================================================================
+@test "send: multiple --to flags include both recipients in To header" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send --to alice@example.com --to bob@example.com --subject "Multiple TO test" -b "$body"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to alice@example.com, bob@example.com"* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: alice@example.com, bob@example.com"* ]]
+}
+
+@test "send: multiple --to flags show all recipients in output" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send --to first@example.com --to second@example.com --subject "Output test" -b "$body"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to first@example.com, second@example.com"* ]]
+}
+
+@test "send: single --to flag still works" {
+  local body="This is a message body that is definitely longer than fifty characters for testing."
+  run emails send --to user@example.com --subject "Single TO test" -b "$body"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to user@example.com"* ]]
+  [[ "$output" != *","* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: user@example.com"* ]]
+}
+
+@test "send: --file JSON with array to field" {
+  local spec="$BATS_TEST_TMPDIR/email-array-to.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": ["alice@example.com", "bob@example.com"],
+  "subject": "Array TO file test",
+  "body": "This is the message body loaded from the JSON file spec for array TO testing."
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to alice@example.com, bob@example.com"* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: alice@example.com, bob@example.com"* ]]
+}
+
+@test "send: --file JSON with scalar to field still works" {
+  local spec="$BATS_TEST_TMPDIR/email-scalar-to.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": "user@example.com",
+  "subject": "Scalar TO file test",
+  "body": "This is the message body loaded from the JSON file spec for scalar TO testing."
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Sent to user@example.com"* ]]
+  mml=$(himalaya_stdin)
+  [[ "$mml" == *"To: user@example.com"* ]]
+}
+
+@test "send: --file JSON rejects non-string to array entries" {
+  local spec="$BATS_TEST_TMPDIR/email-bad-to.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": ["alice@example.com", 42],
+  "subject": "Bad TO field",
+  "body": "This is the message body loaded from the JSON file spec for structured agent email sending."
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid --file to field"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
+
+@test "send: --file JSON rejects non-string non-array to" {
+  local spec="$BATS_TEST_TMPDIR/email-bad-to2.json"
+  cat > "$spec" <<'JSON'
+{
+  "to": 42,
+  "subject": "Bad TO field",
+  "body": "This is the message body loaded from the JSON file spec for structured agent email sending."
+}
+JSON
+  run emails send --file "$spec"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid --file to field"* ]]
+  [ ! -s "$MOCK_HIMALAYA_CALLS" ]
+}
 
 @test "send: fails without email config" {
   rm -f "$HIMALAYA_CONFIG"
