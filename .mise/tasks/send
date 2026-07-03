@@ -33,31 +33,17 @@ json_string_field() {
   ' "$file"
 }
 
-json_cc_lines() {
+json_string_or_array_lines() {
   local file="$1"
-  jq -r '
-    if has("cc") and .cc != null then
-      if (.cc | type) == "array" then
-        if all(.cc[]; type == "string") then .cc[]
-        else error("cc array must contain only strings")
+  local field="$2"
+  jq -r --arg field "$field" '
+    if has($field) and .[$field] != null then
+      if (.[$field] | type) == "array" then
+        if all(.[$field][]; type == "string") then .[$field][]
+        else error($field + " array must contain only strings")
         end
-      elif (.cc | type) == "string" then .cc
-      else error("cc must be a string or array of strings")
-      end
-    else empty end
-  ' "$file"
-}
-
-json_to_lines() {
-  local file="$1"
-  jq -r '
-    if has("to") and .to != null then
-      if (.to | type) == "array" then
-        if all(.to[]; type == "string") then .to[]
-        else error("to array must contain only strings")
-        end
-      elif (.to | type) == "string" then .to
-      else error("to must be a string or array of strings")
+      elif (.[$field] | type) == "string" then .[$field]
+      else error($field + " must be a string or array of strings")
       end
     else empty end
   ' "$file"
@@ -83,7 +69,7 @@ if [ -n "${usage_file:-}" ]; then
     echo "Error: File not found: $usage_file"
     exit 1
   fi
-  if ! FILE_TO_LINES=$(json_to_lines "$usage_file"); then
+  if ! FILE_TO_LINES=$(json_string_or_array_lines "$usage_file" to); then
     echo "Error: invalid --file to field"
     exit 1
   fi
@@ -95,7 +81,7 @@ if [ -n "${usage_file:-}" ]; then
     echo "Error: invalid --file body field"
     exit 1
   fi
-  if ! FILE_CC_LINES=$(json_cc_lines "$usage_file"); then
+  if ! FILE_CC_LINES=$(json_string_or_array_lines "$usage_file" cc); then
     echo "Error: invalid --file cc field"
     exit 1
   fi
