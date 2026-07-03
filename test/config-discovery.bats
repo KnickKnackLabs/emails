@@ -2,8 +2,10 @@
 # Tests for find_upward_email_config() and the config resolution fallback chain
 
 bats_require_minimum_version 1.5.0
+load helpers
 
 setup() {
+  setup_mock_himalaya
   unset EMAILS_CONFIG
   unset HIMALAYA_CONFIG
   unset EMAILS_CALLER_PWD
@@ -44,6 +46,17 @@ EOF
   run bash -c 'EMAILS_CALLER_PWD="'"$caller_dir"'" source "$REPO_DIR/lib/email.sh" && printf "%s|%s|%s" "$CONFIG_FILE" "$ACCOUNT" "$ACCOUNT_EMAIL"'
   [ "$status" -eq 0 ]
   [ "$output" = "$caller_dir/.emails/himalaya.toml|test-agent|test-agent@ricon.family" ]
+}
+
+@test "config-discovery: public status task uses EMAILS_CALLER_PWD" {
+  local caller_dir="$BATS_TEST_TMPDIR/caller"
+  setup_caller_config "$caller_dir"
+
+  run bash -c 'EMAILS_CALLER_PWD="$1" EMAILS_CONFIG= HIMALAYA_CONFIG= emails status' _ "$caller_dir"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Config: $caller_dir/.emails/himalaya.toml"* ]]
+  [[ "$output" == *"Resolved account: test-agent <test-agent@ricon.family>"* ]]
+  [[ "$output" == *"Connection: ✓"* ]]
 }
 
 @test "config-discovery: CALLER_PWD fallback works when EMAILS_CALLER_PWD is unset" {
