@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for find_upward_email_config() and the config resolution fallback chain
+# Tests for find_upward_email_config() and the config resolution chain
 
 bats_require_minimum_version 1.5.0
 load helpers
@@ -9,7 +9,6 @@ setup() {
   unset EMAILS_CONFIG
   unset HIMALAYA_CONFIG
   unset EMAILS_CALLER_PWD
-  unset CALLER_PWD
   unset EMAILS_ACCOUNT
 }
 
@@ -59,16 +58,31 @@ EOF
   [[ "$output" == *"Connection: ✓"* ]]
 }
 
-@test "config-discovery: CALLER_PWD fallback works when EMAILS_CALLER_PWD is unset" {
+@test "config-discovery: explicit EMAILS_CONFIG missing path does not fall back" {
   local caller_dir="$BATS_TEST_TMPDIR/caller"
+  local missing_config="$BATS_TEST_TMPDIR/missing/himalaya.toml"
   setup_caller_config "$caller_dir"
 
-  run bash -c 'CALLER_PWD="'"$caller_dir"'" source "$REPO_DIR/lib/email.sh" && printf "%s|%s|%s" "$CONFIG_FILE" "$ACCOUNT" "$ACCOUNT_EMAIL"'
-  [ "$status" -eq 0 ]
-  [ "$output" = "$caller_dir/.emails/himalaya.toml|test-agent|test-agent@ricon.family" ]
+  run bash -c 'EMAILS_CALLER_PWD="$1" EMAILS_CONFIG="$2" HIMALAYA_CONFIG= emails status' _ "$caller_dir" "$missing_config"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Config: $missing_config"* ]]
+  [[ "$output" == *"Config exists: ✗"* ]]
+  [[ "$output" != *"$caller_dir/.emails/himalaya.toml"* ]]
 }
 
-@test "config-discovery: PWD fallback when neither EMAILS_CALLER_PWD nor CALLER_PWD is set" {
+@test "config-discovery: explicit HIMALAYA_CONFIG missing path does not fall back" {
+  local caller_dir="$BATS_TEST_TMPDIR/caller"
+  local missing_config="$BATS_TEST_TMPDIR/missing/himalaya.toml"
+  setup_caller_config "$caller_dir"
+
+  run bash -c 'EMAILS_CALLER_PWD="$1" EMAILS_CONFIG= HIMALAYA_CONFIG="$2" emails status' _ "$caller_dir" "$missing_config"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Config: $missing_config"* ]]
+  [[ "$output" == *"Config exists: ✗"* ]]
+  [[ "$output" != *"$caller_dir/.emails/himalaya.toml"* ]]
+}
+
+@test "config-discovery: PWD fallback when EMAILS_CALLER_PWD is unset" {
   local caller_dir="$BATS_TEST_TMPDIR/pwd-caller"
   setup_caller_config "$caller_dir"
 
