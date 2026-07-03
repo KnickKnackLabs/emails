@@ -117,6 +117,25 @@ HTML
   [[ "$output" == *"Explicit flags integration test"* ]]
 }
 
+@test "send: repeated --to flags preserve all To recipients" {
+  local body_file="$BATS_TEST_TMPDIR/body.txt"
+  echo "This message verifies repeated To recipients through the local maildir send path." > "$body_file"
+
+  emails send \
+    --to test-agent@ricon.family \
+    --to bob@example.com \
+    --subject "Repeated To integration test" \
+    -b "$body_file"
+
+  local sent_msg
+  sent_msg=$(find "$MAILDIR_ROOT/Sent" -type f | head -1)
+  run cat "$sent_msg"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"To:"* ]]
+  [[ "$output" == *"test-agent@ricon.family"* ]]
+  [[ "$output" == *"bob@example.com"* ]]
+}
+
 @test "send: rejects two recipient-looking positional args (GHL shape)" {
   run emails send alice@example.com candi@example.com \
     "This body is long enough but should never be sent because the subject is an email."
