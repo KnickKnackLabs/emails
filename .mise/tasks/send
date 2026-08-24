@@ -14,6 +14,7 @@
 #USAGE flag "--sign" default=#false help="Require GPG signing for this send"
 #USAGE flag "--no-sign" default=#false help="Send without GPG signing even if the account has GPG configured"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run send --to user@example.com --subject Update --body body.txt" header="Send from a body file"
 
 set -euo pipefail
 
@@ -107,7 +108,7 @@ while IFS= read -r to; do
   fi
 done < <(printf '%s' "${usage_to:-}" | xargs printf '%s\n')
 if [ "$_TO_FCOUNT" -gt 0 ]; then
-  TOS=("${_TO_FLAGS[@]}")
+  TOS=(${_TO_FLAGS[@]+"${_TO_FLAGS[@]}"})
   TO_COUNT="$_TO_FCOUNT"
 fi
 if [ -n "${usage_subject:-}" ]; then
@@ -117,7 +118,7 @@ fi
 
 TO_ADDRS=""
 if [ "$TO_COUNT" -gt 0 ]; then
-  TO_ADDRS=$(printf '%s\n' "${TOS[@]}" | paste -sd ',' - | sed 's/,/, /g')
+  TO_ADDRS=$(printf '%s\n' ${TOS[@]+"${TOS[@]}"} | paste -sd ',' - | sed 's/,/, /g')
 fi
 
 if [ -z "$TO_ADDRS" ] || [ -z "$SUBJECT" ]; then
@@ -219,7 +220,7 @@ while IFS= read -r filepath; do
 done < <(printf '%s' "${usage_attach:-}" | xargs printf '%s\n')
 
 if [ "$ATTACH_COUNT" -gt 0 ]; then
-  for filepath in "${ATTACHES[@]}"; do
+  for filepath in ${ATTACHES[@]+"${ATTACHES[@]}"}; do
     if [[ "$filepath" != /* ]]; then
       filepath="$(cd "$(dirname "$filepath")" && pwd)/$(basename "$filepath")"
     fi
@@ -253,7 +254,7 @@ while IFS= read -r cc; do
 done < <(printf '%s' "${usage_cc:-}" | xargs printf '%s\n')
 
 if [ "$CC_COUNT" -gt 0 ]; then
-  CC_ADDRS=$(printf '%s\n' "${CCS[@]}" | paste -sd ',' - | sed 's/,/, /g')
+  CC_ADDRS=$(printf '%s\n' ${CCS[@]+"${CCS[@]}"} | paste -sd ',' - | sed 's/,/, /g')
   CC_HEADER="Cc: $CC_ADDRS"
 fi
 

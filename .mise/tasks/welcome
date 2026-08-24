@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Email intro and current status"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run welcome --account work" header="Show one account's welcome"
 
 set -euo pipefail
 

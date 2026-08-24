@@ -2,6 +2,7 @@
 #MISE description="Set or clear the default email account"
 #USAGE arg "[account]" default="" help="Account name to make default"
 #USAGE flag "--clear" default=#false help="Clear all account defaults"
+#USAGE example "mise run account:default work" header="Choose the default account"
 
 set -euo pipefail
 

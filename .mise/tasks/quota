@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Show email storage quota usage"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run quota --account work" header="Show account quota"
 
 set -euo pipefail
 

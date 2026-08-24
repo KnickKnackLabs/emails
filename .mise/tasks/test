@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Run BATS tests"
-#USAGE arg "[args]" var=#true help="Test suites or bats arguments"
+#USAGE arg "[args]" default="" var=#true help="Test suites or bats arguments"
 #USAGE example "mise run test" header="Run all unit tests"
 #USAGE example "mise run test setup" header="Run a specific suite by name"
 #USAGE example "mise run test --filter signing" header="Filter tests by name"
@@ -34,4 +34,4 @@ if ! $has_target; then
   resolved+=("$TEST_DIR/")
 fi
 
-bats --print-output-on-failure "${resolved[@]}"
+bats --jobs 1 --print-output-on-failure ${resolved[@]+"${resolved[@]}"}

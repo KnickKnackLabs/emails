@@ -10,6 +10,7 @@
 #USAGE flag "--sign" default=#false help="Require GPG signing for this reply"
 #USAGE flag "--no-sign" default=#false help="Send without GPG signing even if the account has GPG configured"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run reply 42 --body reply.txt" header="Reply from a body file"
 
 set -euo pipefail
 
@@ -87,7 +88,7 @@ while IFS= read -r filepath; do
 done < <(printf '%s' "${usage_attach:-}" | xargs printf '%s\n')
 
 if [ "$ATTACH_COUNT" -gt 0 ]; then
-  for filepath in "${ATTACHES[@]}"; do
+  for filepath in ${ATTACHES[@]+"${ATTACHES[@]}"}; do
     if [[ "$filepath" != /* ]]; then
       filepath="$(cd "$(dirname "$filepath")" && pwd)/$(basename "$filepath")"
     fi
@@ -124,7 +125,7 @@ while IFS= read -r cc; do
 done < <(printf '%s' "${usage_cc:-}" | xargs printf '%s\n')
 
 if [ "$CC_COUNT" -gt 0 ]; then
-  CC_ADDRS=$(printf '%s\n' "${CCS[@]}" | paste -sd ',' - | sed 's/,/, /g')
+  CC_ADDRS=$(printf '%s\n' ${CCS[@]+"${CCS[@]}"} | paste -sd ',' - | sed 's/,/, /g')
   HEADERS=$(echo "$HEADERS" | sed "/^Subject:/a\\\nCc: $CC_ADDRS")
 fi
 

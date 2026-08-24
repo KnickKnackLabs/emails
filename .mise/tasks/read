@@ -4,6 +4,7 @@
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to read from (default: INBOX)"
 #USAGE flag "-s --save-attachments" default=#false help="Download attachments to the account downloads directory"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run read 42" header="Read a message"
 
 set -euo pipefail
 

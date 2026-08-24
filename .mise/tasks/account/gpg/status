@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Show GPG signing status for an email account"
 #USAGE arg "<account>" help="Account name"
+#USAGE example "mise run account:gpg:status work" header="Check signing for an account"
 
 set -euo pipefail
 

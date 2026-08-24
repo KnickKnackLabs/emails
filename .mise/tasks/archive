@@ -2,6 +2,7 @@
 #MISE description="Archive email message(s)"
 #USAGE arg "<id>" help="Message ID to archive"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run archive 42" header="Archive a message"
 
 set -euo pipefail
 

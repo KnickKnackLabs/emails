@@ -5,6 +5,7 @@
 #USAGE flag "--permanent" default=#false help="Permanently delete (skip Trash, purge immediately)"
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to operate on (default: INBOX)"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run delete 42 43" header="Move messages to Trash"
 
 set -euo pipefail
 
@@ -25,7 +26,7 @@ while IFS= read -r id; do
 done < <(printf '%s' "${usage_ids:-}" | xargs printf '%s\n')
 
 if [ "$IDS_COUNT" -gt 0 ]; then
-  for id in "${IDS[@]}"; do
+  for id in ${IDS[@]+"${IDS[@]}"}; do
     if [[ ! "$id" =~ ^[0-9]+$ ]]; then
       echo "Error: IDs must be numeric (got: $id)"
       exit 1
@@ -69,10 +70,10 @@ if [ "$ALL" = "true" ]; then
 fi
 
 if [ "$PERMANENT" = "true" ]; then
-  emails_himalaya flag add -a "$ACCOUNT" -f "$FOLDER" "${IDS[@]}" deleted
+  emails_himalaya flag add -a "$ACCOUNT" -f "$FOLDER" ${IDS[@]+"${IDS[@]}"} deleted
   emails_himalaya folder expunge -a "$ACCOUNT" "$FOLDER"
   echo "Permanently deleted $IDS_COUNT message(s) from $FOLDER"
 else
-  emails_himalaya message delete -a "$ACCOUNT" -f "$FOLDER" "${IDS[@]}"
+  emails_himalaya message delete -a "$ACCOUNT" -f "$FOLDER" ${IDS[@]+"${IDS[@]}"}
   echo "Moved $IDS_COUNT message(s) to Trash"
 fi

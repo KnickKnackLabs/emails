@@ -15,9 +15,18 @@ emails() {
 }
 export -f emails
 
+# Remove ambient Emails selectors before installing per-test fixtures.
+isolate_emails_env() {
+  unset EMAILS_CONFIG
+  unset EMAILS_ACCOUNT
+  unset EMAILS_CALLER_PWD
+  unset EMAILS_NO_ACCOUNT_RESOLUTION
+}
+
 # Set up a fake agent identity and himalaya config
 # Uses HIMALAYA_CONFIG env var to avoid touching real HOME
 setup_agent() {
+  isolate_emails_env
   export BATS_ACCOUNT="test-agent"
 
   # Create himalaya config in test tmpdir
@@ -28,6 +37,7 @@ setup_agent() {
 default = true
 email = "test-agent@ricon.family"
 display-name = "test-agent"
+downloads-dir = "$BATS_TEST_TMPDIR/downloads"
 backend.type = "imap"
 backend.host = "mail.ricon.family"
 backend.port = 993
@@ -48,12 +58,13 @@ pgp.decrypt-cmd = "gpg --decrypt --quiet"
 pgp.verify-cmd = "gpg --verify --quiet"
 EOF
 
-  # Create agent workspace
-  mkdir -p "$HOME/agents/test-agent/downloads"
+  # Keep attachment downloads inside this test's fixture root.
+  mkdir -p "$BATS_TEST_TMPDIR/downloads"
 }
 
 # Create a mock himalaya that returns canned responses
 setup_mock_himalaya() {
+  isolate_emails_env
   export MOCK_BIN="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$MOCK_BIN"
 

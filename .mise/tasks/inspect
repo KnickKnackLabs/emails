@@ -3,6 +3,7 @@
 #USAGE arg "<id>" help="Message ID to inspect"
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to inspect from (default: INBOX)"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run inspect 42" header="Inspect a message"
 
 set -euo pipefail
 

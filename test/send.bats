@@ -102,13 +102,13 @@ setup() {
 
 @test "send: reads body from stdin" {
   local body="This is a message body piped via stdin that is definitely longer than fifty characters."
-  run bash -c "cd '$REPO_DIR' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' HIMALAYA='$HIMALAYA' PATH='$PATH' mise run -q send user@example.com 'Subject'"
+  run bash -c 'printf "%s" "$1" | emails send user@example.com "Subject"' _ "$body"
   [ "$status" -eq 0 ]
 }
 
 @test "send: --html flag before positionals reads body from stdin" {
   local body="This is an HTML body piped via stdin that is definitely longer than fifty characters."
-  run bash -c "cd '$REPO_DIR' && echo '$body' | GIT_AUTHOR_EMAIL='test-agent@ricon.family' HIMALAYA_CONFIG='$HIMALAYA_CONFIG' HIMALAYA='$HIMALAYA' PATH='$PATH' mise run -q send --html user@example.com 'Subject'"
+  run bash -c 'printf "%s" "$1" | emails send --html user@example.com "Subject"' _ "$body"
   [ "$status" -eq 0 ]
   [[ "$output" != *"too short"* ]]
   [[ "$output" != *"body is required"* ]]
