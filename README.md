@@ -12,7 +12,7 @@
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
 ![commands: 25](https://img.shields.io/badge/commands-25-blue?style=flat)
 [![tests: 152 passing](https://img.shields.io/badge/tests-152%20passing-brightgreen?style=flat)](test/)
-![lints: 9](https://img.shields.io/badge/lints-9-blue?style=flat)
+![lints: 17](https://img.shields.io/badge/lints-17-blue?style=flat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
 </div>

@@ -4,6 +4,7 @@
 #USAGE flag "--top <n>" default="5" help="Number of largest messages/groups to show per folder (default: 5)"
 #USAGE flag "--group-by <field>" default="" help="Group by sender or subject-prefix"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run sizes --top 10" header="Show the largest messages"
 
 set -euo pipefail
 
@@ -203,7 +204,7 @@ PY
   rm -f "$input_file"
 }
 
-for F in "${FOLDERS[@]}"; do
+for F in ${FOLDERS[@]+"${FOLDERS[@]}"}; do
   RESULT=$(fetch_sizes "$F")
 
   COUNT=$(echo "$RESULT" | grep "EXISTS" | grep -oE '[0-9]+' | head -1)

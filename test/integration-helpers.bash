@@ -22,6 +22,11 @@ export -f emails
 # Create a maildir test environment matching our mxroute folder structure.
 # Sets: MAILDIR_ROOT, HIMALAYA_CONFIG, AGENT, GIT_AUTHOR_EMAIL, FAKE_SENDMAIL_MAILDIR
 setup_maildir() {
+  unset EMAILS_CONFIG
+  unset EMAILS_ACCOUNT
+  unset EMAILS_CALLER_PWD
+  unset EMAILS_NO_ACCOUNT_RESOLUTION
+
   export MAILDIR_ROOT="$BATS_TEST_TMPDIR/maildir"
   export AGENT="test-agent"
   export GIT_AUTHOR_EMAIL="test-agent@ricon.family"
@@ -48,6 +53,7 @@ SCRIPT
 default = true
 email = "test-agent@ricon.family"
 display-name = "Test Agent"
+downloads-dir = "$BATS_TEST_TMPDIR/downloads"
 
 backend.type = "maildir"
 backend.root-dir = "$MAILDIR_ROOT"
@@ -61,8 +67,8 @@ pgp.decrypt-cmd = "gpg --decrypt --quiet"
 pgp.verify-cmd = "gpg --verify --quiet"
 EOF
 
-  # Agent workspace for attachment downloads
-  mkdir -p "$HOME/agents/test-agent/downloads"
+  # Keep attachment downloads inside this test's fixture root.
+  mkdir -p "$BATS_TEST_TMPDIR/downloads"
 }
 
 # Deposit a raw email into a maildir folder.

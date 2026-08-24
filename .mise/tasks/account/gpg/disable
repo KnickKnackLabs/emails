@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Disable GPG signing for an email account"
 #USAGE arg "<account>" help="Account name"
+#USAGE example "mise run account:gpg:disable work" header="Disable signing for an account"
 
 set -euo pipefail
 

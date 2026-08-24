@@ -6,6 +6,7 @@
 #USAGE flag "--unread" default=#false help="Only show unread messages"
 #USAGE flag "--count" default=#false help="Just output the count (useful for scripts)"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run list --unread --limit 20" header="List unread messages"
 
 set -euo pipefail
 
@@ -27,13 +28,13 @@ if [ "$UNREAD" = "true" ]; then
 fi
 
 # Fetch one extra to detect if there are more messages beyond the limit.
-OUTPUT=$(emails_himalaya "${LIST_CMD[@]}")
+OUTPUT=$(emails_himalaya ${LIST_CMD[@]+"${LIST_CMD[@]}"})
 
 # Count data rows (skip 3 header rows: blank + column headers + separator)
 DATA_ROWS=$(echo "$OUTPUT" | tail -n +4 | wc -l | tr -d ' ')
 
 if [ "$COUNT_ONLY" = "true" ]; then
-  COUNT_OUTPUT=$(emails_himalaya "${COUNT_CMD[@]}")
+  COUNT_OUTPUT=$(emails_himalaya ${COUNT_CMD[@]+"${COUNT_CMD[@]}"})
   echo "$COUNT_OUTPUT" | tail -n +4 | wc -l | tr -d ' '
 else
   echo "$OUTPUT" | head -$((LIMIT + 3))

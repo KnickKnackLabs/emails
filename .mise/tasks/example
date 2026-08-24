@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Print a starter TSX email example"
 #USAGE arg "[name]" default="" help="Example name to print (omit to list examples)"
+#USAGE example "mise run example business-letter" header="Print an example"
 
 set -euo pipefail
 

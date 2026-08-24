@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Show one configured email account"
 #USAGE arg "<account>" help="Account name"
+#USAGE example "mise run account:show work" header="Show an account"
 
 set -euo pipefail
 

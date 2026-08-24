@@ -3,6 +3,7 @@
 #USAGE arg "[folder]" default="Trash" help="Folder to purge (default: Trash)"
 #USAGE flag "--force" default=#false help="Skip confirmation prompt"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run purge Trash" header="Purge a folder with confirmation"
 
 set -euo pipefail
 

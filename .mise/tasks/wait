@@ -6,6 +6,7 @@
 #USAGE flag "--interval <seconds>" default="30" help="Poll interval in seconds (default: 30)"
 #USAGE arg "[query]" var=#true default="" help="Optional himalaya query filter (e.g. 'from groups.io')"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run wait --timeout 60" header="Wait up to one minute"
 
 set -euo pipefail
 
@@ -31,7 +32,7 @@ done < <(printf '%s' "${usage_query:-}" | xargs printf '%s\n')
 # Fetch current envelope IDs from the folder
 get_ids() {
   if [ "$QUERY_COUNT" -gt 0 ]; then
-    emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size 1000 -o json "${QUERY_ARGS[@]}" 2>/dev/null \
+    emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size 1000 -o json ${QUERY_ARGS[@]+"${QUERY_ARGS[@]}"} 2>/dev/null \
       | jq -r '.[].id'
   else
     emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size 1000 -o json 2>/dev/null \

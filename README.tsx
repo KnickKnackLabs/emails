@@ -1,5 +1,6 @@
 /** @jsxImportSource jsx-md */
 
+import { execFileSync } from "child_process";
 import { readFileSync, readdirSync, existsSync, statSync } from "fs";
 import { join, resolve } from "path";
 
@@ -62,7 +63,26 @@ function countTests(dir: string): number {
 function parseCodebaseLintRules(): string[] {
   const content = readFileSync(MISE_FILE, "utf-8");
   const lintBlock = content.match(/lint\s*=\s*\[([\s\S]*?)\]/m)?.[1] ?? "";
-  return [...lintBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  const configured = [...lintBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  const selectedGroups = configured.filter((rule) => rule.startsWith("@"));
+  if (selectedGroups.length === 0) return configured;
+
+  const memberships = new Map<string, string[]>();
+  let currentGroup = "";
+  const groups = execFileSync("codebase", ["lint:groups"], {
+    cwd: REPO_DIR,
+    encoding: "utf-8",
+  });
+  for (const line of groups.split("\n")) {
+    if (line.startsWith("@")) {
+      currentGroup = line;
+      memberships.set(currentGroup, []);
+    } else if (currentGroup && line.startsWith("  ")) {
+      memberships.get(currentGroup)!.push(line.trim());
+    }
+  }
+
+  return [...new Set(configured.flatMap((rule) => memberships.get(rule) ?? [rule]))];
 }
 
 const unitTests = countTests(TEST_DIR);

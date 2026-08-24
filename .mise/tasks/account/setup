@@ -11,6 +11,7 @@
 #USAGE flag "--set-default" default=#false help="Mark this account as the default account"
 #USAGE flag "--gpg-local-user <gpg_local_user>" default="" help="Enable signing with this GPG local-user selector"
 #USAGE flag "--downloads-dir <downloads_dir>" default="" help="Attachment download directory"
+#USAGE example "printf '%s' password | mise run account:setup work --address you@example.com --imap-host imap.example.com --smtp-host smtp.example.com --password-stdin" header="Configure an account"
 
 set -euo pipefail
 

@@ -3,4 +3,4 @@
 
 set -euo pipefail
 
-bats --print-output-on-failure "$MISE_CONFIG_ROOT/test/integration/"
+bats --jobs 1 --print-output-on-failure "$MISE_CONFIG_ROOT/test/integration/"

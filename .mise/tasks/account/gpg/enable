@@ -2,6 +2,7 @@
 #MISE description="Enable GPG signing for an email account"
 #USAGE arg "<account>" help="Account name"
 #USAGE flag "--local-user <local_user>" help="GPG local-user selector, usually the account email address"
+#USAGE example "mise run account:gpg:enable work --local-user you@example.com" header="Enable signing for an account"
 
 set -euo pipefail
 

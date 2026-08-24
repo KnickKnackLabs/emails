@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Check email account setup status"
 #USAGE flag "--account <account>" default="" help="Email account to check"
+#USAGE example "mise run status --account work" header="Check an account"
 
 set -euo pipefail
 

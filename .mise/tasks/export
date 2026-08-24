@@ -6,6 +6,7 @@
 #USAGE flag "-f --folder <folder>" default="INBOX" help="Folder to export from (default: INBOX)"
 #USAGE flag "-n --limit <limit>" default="500" help="Limit number of emails when using --all (default: 500)"
 #USAGE flag "--account <account>" default="" help="Email account to use"
+#USAGE example "mise run export 42 --destination ./exports" header="Export a message"
 
 set -euo pipefail
 
@@ -27,7 +28,7 @@ while IFS= read -r id; do
 done < <(printf '%s' "${usage_ids:-}" | xargs printf '%s\n')
 
 if [ "$IDS_COUNT" -gt 0 ]; then
-  for id in "${IDS[@]}"; do
+  for id in ${IDS[@]+"${IDS[@]}"}; do
     if [[ ! "$id" =~ ^[0-9]+$ ]]; then
       echo "Error: IDs must be numeric (got: $id)"
       exit 1
@@ -60,7 +61,7 @@ echo "Exporting $IDS_COUNT message(s) from $FOLDER to $DEST..."
 
 EXPORTED=0
 FAILED=0
-for ID in "${IDS[@]}"; do
+for ID in ${IDS[@]+"${IDS[@]}"}; do
   if emails_himalaya message read -a "$ACCOUNT" -f "$FOLDER" "$ID" > "$DEST/$ID.eml" 2>/dev/null; then
     EXPORTED=$((EXPORTED + 1))
   else
