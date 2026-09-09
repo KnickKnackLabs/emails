@@ -11,8 +11,8 @@
 ![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
 ![commands: 25](https://img.shields.io/badge/commands-25-blue?style=flat)
-[![tests: 157 passing](https://img.shields.io/badge/tests-157%20passing-brightgreen?style=flat)](test/)
-![lints: 17](https://img.shields.io/badge/lints-17-blue?style=flat)
+[![tests: 158 passing](https://img.shields.io/badge/tests-158%20passing-brightgreen?style=flat)](test/)
+![lints: 19](https://img.shields.io/badge/lints-19-blue?style=flat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
 </div>
@@ -186,9 +186,9 @@ The README shows workflows, not a full command catalog. Use `emails <command> --
 
 ## Testing
 
-157 tests across two suites:
+158 tests across two suites:
 
-- **Unit tests (121)** — mock himalaya and test task logic in isolation
+- **Unit tests (122)** — mock himalaya and test task logic in isolation
 - **Integration tests (36)** — real himalaya against a local maildir backend, full round-trip, no network
 
 ```bash
