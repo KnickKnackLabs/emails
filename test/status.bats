@@ -41,3 +41,12 @@ EOF
   [[ "$output" == *"Resolved account: kkl <c0da@knacklabs.co>"* ]]
   [[ "$output" == *"Connection: ✓"* ]]
 }
+
+@test "status: reports a healthy connection for a mailbox larger than the pipe buffer" {
+  set_mock_response_rows 2000
+
+  run emails status --account personal
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Connection: ✓"* ]]
+}
