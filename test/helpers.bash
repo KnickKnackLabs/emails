@@ -98,9 +98,10 @@ if [ "${args[0]:-} ${args[1]:-}" = "template send" ]; then
   cat >> "$MOCK_HIMALAYA_STDIN"
 fi
 
-# Read canned response if set
+# Read canned response if set. dd writes in blocks; cat hands a regular file to
+# the pipe in one transfer, so it is never mid-write when a reader closes early.
 if [ -n "${MOCK_HIMALAYA_RESPONSE:-}" ] && [ -f "$MOCK_HIMALAYA_RESPONSE" ]; then
-  cat "$MOCK_HIMALAYA_RESPONSE"
+  dd if="$MOCK_HIMALAYA_RESPONSE" bs=4096 2>/dev/null
 fi
 MOCK
   chmod +x "$MOCK_BIN/himalaya"
@@ -113,6 +114,15 @@ MOCK
 set_mock_response() {
   export MOCK_HIMALAYA_RESPONSE="$BATS_TEST_TMPDIR/mock-response.txt"
   echo "$1" > "$MOCK_HIMALAYA_RESPONSE"
+}
+
+# Canned envelope listing of $1 rows, for responses that must exceed a pipe buffer
+set_mock_response_rows() {
+  export MOCK_HIMALAYA_RESPONSE="$BATS_TEST_TMPDIR/mock-response.txt"
+  local row
+  for ((row = 1; row <= $1; row++)); do
+    printf '| %d |  *    | Subject %d | someone@example.test | 2026-04-04 |\n' "$row" "$row"
+  done > "$MOCK_HIMALAYA_RESPONSE"
 }
 
 # Assert himalaya was called with specific args
