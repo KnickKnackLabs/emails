@@ -20,6 +20,29 @@ setup() {
   assert_himalaya_called "message read -a test-agent -f INBOX 42"
 }
 
+@test "export: failed listing cannot export partial results or claim an empty folder" {
+  cat > "$MOCK_BIN/himalaya" <<'MOCK'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$MOCK_HIMALAYA_CALLS"
+printf 'header\nseparator\nseparator\n| 42 | partial |\n'
+exit 42
+MOCK
+
+  run emails export --all -d "$BATS_TEST_TMPDIR/exported"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"No messages"* ]]
+  ! grep -q 'message read' "$MOCK_HIMALAYA_CALLS"
+  [ ! -e "$BATS_TEST_TMPDIR/exported/42.eml" ]
+}
+
+@test "export: successful empty listing is not an error" {
+  run emails export --all -d "$BATS_TEST_TMPDIR/exported"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No messages to export"* ]]
+}
+
 @test "export: counts failed reads under strict shell" {
   cat > "$MOCK_BIN/himalaya" <<'MOCK'
 #!/usr/bin/env bash

@@ -94,9 +94,11 @@ if [ "$HAS_ATTACHMENT" = "true" ]; then
 
     # mkdir -p ran above so the dir exists; ls should not fail here
     BEFORE=$(ls -1 "$DOWNLOADS_DIR")
+    printf '%s\n' "$BEFORE" | sort > "$TMPDIR/attachments-before"
     emails_himalaya attachment download -a "$ACCOUNT" -f "$FOLDER" -o plain "$ID" >/dev/null 2>&1
     AFTER=$(ls -1 "$DOWNLOADS_DIR")
-    NEW_FILES=$(comm -13 <(echo "$BEFORE" | sort) <(echo "$AFTER" | sort))
+    printf '%s\n' "$AFTER" | sort > "$TMPDIR/attachments-after"
+    NEW_FILES=$(comm -13 "$TMPDIR/attachments-before" "$TMPDIR/attachments-after")
 
     FOUND=0
     echo ""

@@ -22,12 +22,13 @@ TIMEOUT="${usage_timeout:-600}"
 # would split it on whitespace.
 QUERY_ARGS=()
 QUERY_COUNT=0
+QUERY_LINES=$(printf '%s' "${usage_query:-}" | xargs printf '%s\n')
 while IFS= read -r arg; do
   if [ -n "$arg" ]; then
     QUERY_ARGS+=("$arg")
     QUERY_COUNT=$((QUERY_COUNT + 1))
   fi
-done < <(printf '%s' "${usage_query:-}" | xargs printf '%s\n')
+done <<< "$QUERY_LINES"
 
 # Fetch current envelope IDs from the folder
 get_ids() {
@@ -47,7 +48,10 @@ debug() {
 }
 
 # Snapshot current state
+STATE_DIR=$(mktemp -d)
+trap 'rm -rf "$STATE_DIR"' EXIT
 INITIAL_IDS=$(get_ids | sort)
+printf '%s\n' "$INITIAL_IDS" > "$STATE_DIR/initial"
 debug "snapshot: $(echo "$INITIAL_IDS" | tr '\n' ' ')"
 
 # Poll loop
@@ -57,7 +61,8 @@ while true; do
   ELAPSED=$((ELAPSED + INTERVAL))
 
   CURRENT_IDS=$(get_ids | sort)
-  NEW_IDS=$(comm -23 <(echo "$CURRENT_IDS") <(echo "$INITIAL_IDS"))
+  printf '%s\n' "$CURRENT_IDS" > "$STATE_DIR/current"
+  NEW_IDS=$(comm -23 "$STATE_DIR/current" "$STATE_DIR/initial")
   # grep -c exits 1 when no lines match, but still prints "0"
   NEW_COUNT=$(echo "$NEW_IDS" | grep -c . || [ $? -eq 1 ])
 
