@@ -56,6 +56,29 @@ setup() {
   assert_himalaya_called "flag add"
 }
 
+@test "delete: failed listing cannot trigger deletion from partial output" {
+  cat > "$MOCK_BIN/himalaya" <<'MOCK'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$MOCK_HIMALAYA_CALLS"
+printf 'header\nseparator\nseparator\n| 42 | partial |\n'
+exit 42
+MOCK
+
+  run emails delete --all --permanent
+
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"empty"* ]]
+  ! grep -Eq 'message delete|flag add|folder expunge' "$MOCK_HIMALAYA_CALLS"
+}
+
+@test "delete: successful empty listing is not an error" {
+  run emails delete --all
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"INBOX is empty"* ]]
+  ! grep -Eq 'message delete|flag add' "$MOCK_HIMALAYA_CALLS"
+}
+
 @test "delete: multiple IDs" {
   run emails delete 10 20 30
   [ "$status" -eq 0 ]

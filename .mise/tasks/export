@@ -20,12 +20,13 @@ ALL="${usage_all:-false}"
 # Parse variadic args
 IDS=()
 IDS_COUNT=0
+ID_LINES=$(printf '%s' "${usage_ids:-}" | xargs printf '%s\n')
 while IFS= read -r id; do
   if [ -n "$id" ]; then
     IDS+=("$id")
     IDS_COUNT=$((IDS_COUNT + 1))
   fi
-done < <(printf '%s' "${usage_ids:-}" | xargs printf '%s\n')
+done <<< "$ID_LINES"
 
 if [ "$IDS_COUNT" -gt 0 ]; then
   for id in ${IDS[@]+"${IDS[@]}"}; do
@@ -44,12 +45,14 @@ if [ "$IDS_COUNT" -eq 0 ] || [ "$ALL" = "true" ]; then
   echo "Fetching message list from $FOLDER..."
   IDS=()
   IDS_COUNT=0
+  ID_LINES=$(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size "$LIMIT" 2>/dev/null \
+    | awk -F'|' 'NR > 3 {gsub(/^[ \t]+|[ \t]+$/, "", $2); if ($2 ~ /^[0-9]+$/) print $2}')
   while IFS= read -r id; do
     if [ -n "$id" ]; then
       IDS+=("$id")
       IDS_COUNT=$((IDS_COUNT + 1))
     fi
-  done < <(emails_himalaya envelope list -a "$ACCOUNT" -f "$FOLDER" --page-size "$LIMIT" 2>/dev/null | tail -n +4 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' | grep -E '^[0-9]+$')
+  done <<< "$ID_LINES"
 fi
 
 if [ "$IDS_COUNT" -eq 0 ]; then

@@ -80,12 +80,13 @@ fi
 ATTACH_MML=""
 ATTACHES=()
 ATTACH_COUNT=0
+ATTACH_LINES=$(printf '%s' "${usage_attach:-}" | xargs printf '%s\n')
 while IFS= read -r filepath; do
   if [ -n "$filepath" ]; then
     ATTACHES+=("$filepath")
     ATTACH_COUNT=$((ATTACH_COUNT + 1))
   fi
-done < <(printf '%s' "${usage_attach:-}" | xargs printf '%s\n')
+done <<< "$ATTACH_LINES"
 
 if [ "$ATTACH_COUNT" -gt 0 ]; then
   for filepath in ${ATTACHES[@]+"${ATTACHES[@]}"}; do
@@ -117,12 +118,13 @@ fi
 # Add CC header if specified
 CCS=()
 CC_COUNT=0
+CC_LINES=$(printf '%s' "${usage_cc:-}" | xargs printf '%s\n')
 while IFS= read -r cc; do
   if [ -n "$cc" ]; then
     CCS+=("$cc")
     CC_COUNT=$((CC_COUNT + 1))
   fi
-done < <(printf '%s' "${usage_cc:-}" | xargs printf '%s\n')
+done <<< "$CC_LINES"
 
 if [ "$CC_COUNT" -gt 0 ]; then
   CC_ADDRS=$(printf '%s\n' ${CCS[@]+"${CCS[@]}"} | paste -sd ',' - | sed 's/,/, /g')

@@ -25,6 +25,31 @@ backend.auth.raw = "kkl-pass"
 EOF
 }
 
+@test "lib: default enumeration propagates account discovery failure" {
+  write_config
+
+  run bash -c '
+    EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$REPO_DIR/lib/email.sh"
+    email_account_names() { printf "personal\n"; return 42; }
+    email_default_accounts
+  '
+
+  [ "$status" -eq 42 ]
+  [ -z "$output" ]
+}
+
+@test "lib: empty config has a successful empty account enumeration" {
+  : > "$HIMALAYA_CONFIG"
+
+  run bash -c '
+    EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$REPO_DIR/lib/email.sh"
+    email_default_accounts
+  '
+
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "lib: resolves the only configured account without default" {
   cat > "$HIMALAYA_CONFIG" <<'EOF'
 [accounts.personal]
