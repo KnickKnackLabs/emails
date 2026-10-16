@@ -144,7 +144,7 @@ const readme = (
         <Badge label="shell" value="bash" color="4EAA25" logo="gnubash" logoColor="white" />
         <Badge label="runtime" value="mise" color="7c3aed" href="https://mise.jdx.dev" />
         <Badge label="commands" value={`${commands.length}`} color="blue" />
-        <Badge label="tests" value={`${totalTests} passing`} color="brightgreen" href="test/" />
+        <Badge label="tests" value={`${totalTests} tests`} color="brightgreen" href="test/" />
         <Badge label="lints" value={`${lintRules.length}`} color="blue" />
         <Badge label="License" value="MIT" color="blue" href="LICENSE" />
       </Badges>
@@ -217,6 +217,16 @@ your-secret-manager read mail/personal/password \\
       --imap-host imap.example.com \\
       --smtp-host smtp.example.com \\
       --password-stdin`}</CodeBlock>
+
+      <Paragraph>
+        {"For distinct incoming/outgoing credentials, replace "}<Code>--password-stdin</Code>
+        {" with "}<Code>--credentials-stdin</Code>{" and pipe a JSON object shaped as "}
+        <Code>{'{"imap":{"username":"reader","password":"…"},"smtp":{"username":"sender","password":"…"}}'}</Code>
+        {". Neither credentials nor JSON belong in command arguments. "}
+        <Code>--imap-encryption</Code>{" and "}<Code>--smtp-encryption</Code>
+        {" accept tls (default) or starttls. Use "}<Code>--gpg-fingerprint</Code>
+        {" for exact full-key signing; "}<Code>--gpg-local-user</Code>{" remains available for email selectors."}
+      </Paragraph>
 
       <Paragraph>
         {"If the config lives in a directory named "}

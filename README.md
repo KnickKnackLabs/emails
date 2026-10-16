@@ -11,7 +11,7 @@
 ![shell: bash](https://img.shields.io/badge/shell-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![runtime: mise](https://img.shields.io/badge/runtime-mise-7c3aed?style=flat)](https://mise.jdx.dev)
 ![commands: 25](https://img.shields.io/badge/commands-25-blue?style=flat)
-[![tests: 172 passing](https://img.shields.io/badge/tests-172%20passing-brightgreen?style=flat)](test/)
+[![tests: 177 tests](https://img.shields.io/badge/tests-177%20tests-brightgreen?style=flat)](test/)
 ![lints: 19](https://img.shields.io/badge/lints-19-blue?style=flat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
@@ -67,6 +67,8 @@ your-secret-manager read mail/personal/password \
       --smtp-host smtp.example.com \
       --password-stdin
 ```
+
+For distinct incoming/outgoing credentials, replace `--password-stdin` with `--credentials-stdin` and pipe a JSON object shaped as `{"imap":{"username":"reader","password":"…"},"smtp":{"username":"sender","password":"…"}}`. Neither credentials nor JSON belong in command arguments. `--imap-encryption` and `--smtp-encryption` accept tls (default) or starttls. Use `--gpg-fingerprint` for exact full-key signing; `--gpg-local-user` remains available for email selectors.
 
 If the config lives in a directory named `.emails`, setup also writes a protective `.gitignore` so the local password-bearing config is not accidentally committed.
 
@@ -186,9 +188,9 @@ The README shows workflows, not a full command catalog. Use `emails <command> --
 
 ## Testing
 
-172 tests across two suites:
+177 tests across two suites:
 
-- **Unit tests (136)** — mock himalaya and test task logic in isolation
+- **Unit tests (141)** — mock himalaya and test task logic in isolation
 - **Integration tests (36)** — real himalaya against a local maildir backend, full round-trip, no network
 
 ```bash

@@ -7,13 +7,18 @@
 #USAGE flag "--imap-port <imap_port>" default="993" help="IMAP port"
 #USAGE flag "--smtp-host <smtp_host>" help="SMTP host"
 #USAGE flag "--smtp-port <smtp_port>" default="465" help="SMTP port"
-#USAGE flag "--password-stdin" default=#false help="Read account password from stdin"
+#USAGE flag "--password-stdin" default=#false help="Read one shared transport password from stdin"
+#USAGE flag "--credentials-stdin" default=#false help="Read JSON with imap/smtp username and password from stdin"
+#USAGE flag "--imap-encryption <imap_encryption>" default="tls" help="IMAP encryption: tls or starttls"
+#USAGE flag "--smtp-encryption <smtp_encryption>" default="tls" help="SMTP encryption: tls or starttls"
+#USAGE flag "--gpg-fingerprint <gpg_fingerprint>" default="" help="Enable signing with an exact full GPG fingerprint"
 #USAGE flag "--set-default" default=#false help="Mark this account as the default account"
 #USAGE flag "--gpg-local-user <gpg_local_user>" default="" help="Enable signing with this GPG local-user selector"
 #USAGE flag "--downloads-dir <downloads_dir>" default="" help="Attachment download directory"
 #USAGE example "printf '%s' password | mise run account:setup work --address you@example.com --imap-host imap.example.com --smtp-host smtp.example.com --password-stdin" header="Configure an account"
 
 set -euo pipefail
+umask 077
 
 EMAILS_NO_ACCOUNT_RESOLUTION=1 source "$MISE_CONFIG_ROOT/lib/email.sh"
 
@@ -24,6 +29,9 @@ IMAP_HOST="${usage_imap_host:-}"
 IMAP_PORT="${usage_imap_port:-993}"
 SMTP_HOST="${usage_smtp_host:-}"
 SMTP_PORT="${usage_smtp_port:-465}"
+IMAP_ENCRYPTION="${usage_imap_encryption:-tls}"
+SMTP_ENCRYPTION="${usage_smtp_encryption:-tls}"
+GPG_FINGERPRINT="${usage_gpg_fingerprint:-}"
 SET_DEFAULT="${usage_set_default:-false}"
 GPG_LOCAL_USER="${usage_gpg_local_user:-}"
 DOWNLOADS_DIR="${usage_downloads_dir:-}"
@@ -46,19 +54,50 @@ if [ -z "$IMAP_HOST" ] || [ -z "$SMTP_HOST" ]; then
 fi
 email_validate_port "--imap-port" "$IMAP_PORT" || exit 1
 email_validate_port "--smtp-port" "$SMTP_PORT" || exit 1
-if [ "${usage_password_stdin:-false}" != "true" ]; then
-  echo "ERROR: provide the password explicitly with --password-stdin" >&2
-  echo "Example: printf '%s' '<password>' | emails account setup $ACCOUNT_NAME --address $ADDRESS --imap-host $IMAP_HOST --smtp-host $SMTP_HOST --password-stdin" >&2
+for encryption in "$IMAP_ENCRYPTION" "$SMTP_ENCRYPTION"; do
+  case "$encryption" in
+    tls|starttls) ;;
+    *) echo 'ERROR: transport encryption must be tls or starttls' >&2; exit 1 ;;
+  esac
+done
+
+if [ "${usage_password_stdin:-false}" = "${usage_credentials_stdin:-false}" ]; then
+  echo 'ERROR: choose exactly one of --password-stdin or --credentials-stdin' >&2
   exit 1
 fi
 if [ -t 0 ]; then
-  echo "ERROR: --password-stdin was provided, but stdin is a terminal" >&2
+  echo 'ERROR: credential stdin must not be a terminal' >&2
   exit 1
 fi
-PASSWORD_VALUE="$(cat)"
-if [ -z "$PASSWORD_VALUE" ]; then
-  echo "ERROR: password from stdin was empty" >&2
-  exit 1
+CREDENTIALS="$(cat)"
+if [ "${usage_credentials_stdin:-false}" = true ]; then
+  if ! printf '%s' "$CREDENTIALS" | jq -e '
+    type == "object" and
+    ([.imap.username, .imap.password, .smtp.username, .smtp.password]
+      | all(type == "string" and length > 0 and (explode | all(. >= 32 and . != 127))))
+  ' >/dev/null 2>&1; then
+    echo 'ERROR: credential JSON requires nonempty imap/smtp username and password strings' >&2
+    exit 1
+  fi
+  IMAP_USERNAME=$(printf '%s' "$CREDENTIALS" | jq -r '.imap.username')
+  IMAP_PASSWORD=$(printf '%s' "$CREDENTIALS" | jq -r '.imap.password')
+  SMTP_USERNAME=$(printf '%s' "$CREDENTIALS" | jq -r '.smtp.username')
+  SMTP_PASSWORD=$(printf '%s' "$CREDENTIALS" | jq -r '.smtp.password')
+else
+  [ -n "$CREDENTIALS" ] || { echo 'ERROR: password from stdin was empty' >&2; exit 1; }
+  IMAP_USERNAME="$ADDRESS"
+  SMTP_USERNAME="$ADDRESS"
+  IMAP_PASSWORD="$CREDENTIALS"
+  SMTP_PASSWORD="$CREDENTIALS"
+fi
+unset CREDENTIALS
+
+if [ -n "$GPG_FINGERPRINT" ]; then
+  if [ -n "$GPG_LOCAL_USER" ] || ! printf '%s' "$GPG_FINGERPRINT" | grep -Eq '^([A-Fa-f0-9]{40}|[A-Fa-f0-9]{64})$'; then
+    echo 'ERROR: use a full --gpg-fingerprint without --gpg-local-user' >&2
+    exit 1
+  fi
+  GPG_FINGERPRINT=$(printf '%s' "$GPG_FINGERPRINT" | tr '[:lower:]' '[:upper:]')
 fi
 
 if [ -z "$DISPLAY_NAME" ]; then
@@ -70,7 +109,10 @@ if [ -z "$DOWNLOADS_DIR" ]; then
   DOWNLOADS_DIR="$CONFIG_DIR/downloads/$ACCOUNT_NAME"
 fi
 
-email_validate_toml_string "password" "$PASSWORD_VALUE" || exit 1
+email_validate_toml_string "IMAP password" "$IMAP_PASSWORD" || exit 1
+email_validate_toml_string "SMTP password" "$SMTP_PASSWORD" || exit 1
+email_validate_toml_string "IMAP username" "$IMAP_USERNAME" || exit 1
+email_validate_toml_string "SMTP username" "$SMTP_USERNAME" || exit 1
 email_validate_toml_string "--address" "$ADDRESS" || exit 1
 email_validate_toml_string "--display-name" "$DISPLAY_NAME" || exit 1
 email_validate_toml_string "--imap-host" "$IMAP_HOST" || exit 1
@@ -93,7 +135,10 @@ if [ -f "$CONFIG_FILE" ] && email_account_exists "$ACCOUNT_NAME"; then
   exit 1
 fi
 
-ESCAPED_PASSWORD="$(printf '%s' "$PASSWORD_VALUE" | email_escape_toml_basic_string)"
+ESCAPED_IMAP_PASSWORD="$(printf '%s' "$IMAP_PASSWORD" | email_escape_toml_basic_string)"
+ESCAPED_SMTP_PASSWORD="$(printf '%s' "$SMTP_PASSWORD" | email_escape_toml_basic_string)"
+ESCAPED_IMAP_USERNAME="$(printf '%s' "$IMAP_USERNAME" | email_escape_toml_basic_string)"
+ESCAPED_SMTP_USERNAME="$(printf '%s' "$SMTP_USERNAME" | email_escape_toml_basic_string)"
 ESCAPED_ADDRESS="$(printf '%s' "$ADDRESS" | email_escape_toml_basic_string)"
 ESCAPED_DISPLAY_NAME="$(printf '%s' "$DISPLAY_NAME" | email_escape_toml_basic_string)"
 ESCAPED_IMAP_HOST="$(printf '%s' "$IMAP_HOST" | email_escape_toml_basic_string)"
@@ -101,13 +146,18 @@ ESCAPED_SMTP_HOST="$(printf '%s' "$SMTP_HOST" | email_escape_toml_basic_string)"
 ESCAPED_DOWNLOADS_DIR="$(printf '%s' "$DOWNLOADS_DIR" | email_escape_toml_basic_string)"
 
 GPG_BLOCK=""
-if [ -n "$GPG_LOCAL_USER" ]; then
-  ESCAPED_GPG_LOCAL_USER="$(printf '%s' "$GPG_LOCAL_USER" | email_escape_toml_basic_string)"
+if [ -n "$GPG_LOCAL_USER" ] || [ -n "$GPG_FINGERPRINT" ]; then
+  if [ -n "$GPG_FINGERPRINT" ]; then
+    GPG_SELECTOR="$GPG_FINGERPRINT!"
+  else
+    GPG_SELECTOR="<$GPG_LOCAL_USER>"
+  fi
+  ESCAPED_GPG_SELECTOR="$(printf '%s' "$GPG_SELECTOR" | email_escape_toml_basic_string)"
   GPG_BLOCK=$(cat <<GPG_EOF
 
 # GPG signing is opt-in per account.
 pgp.type = "commands"
-pgp.sign-cmd = "gpg --local-user '<$ESCAPED_GPG_LOCAL_USER>' --sign --quiet --armor"
+pgp.sign-cmd = "gpg --local-user '$ESCAPED_GPG_SELECTOR' --sign --quiet --armor"
 pgp.decrypt-cmd = "gpg --decrypt --quiet"
 pgp.verify-cmd = "gpg --verify --quiet"
 GPG_EOF
@@ -139,18 +189,18 @@ display-name = "$ESCAPED_DISPLAY_NAME"
 backend.type = "imap"
 backend.host = "$ESCAPED_IMAP_HOST"
 backend.port = $IMAP_PORT
-backend.encryption.type = "tls"
-backend.login = "$ESCAPED_ADDRESS"
+backend.encryption.type = "$IMAP_ENCRYPTION"
+backend.login = "$ESCAPED_IMAP_USERNAME"
 backend.auth.type = "password"
-backend.auth.raw = "$ESCAPED_PASSWORD"
+backend.auth.raw = "$ESCAPED_IMAP_PASSWORD"
 
 message.send.backend.type = "smtp"
 message.send.backend.host = "$ESCAPED_SMTP_HOST"
 message.send.backend.port = $SMTP_PORT
-message.send.backend.encryption.type = "tls"
-message.send.backend.login = "$ESCAPED_ADDRESS"
+message.send.backend.encryption.type = "$SMTP_ENCRYPTION"
+message.send.backend.login = "$ESCAPED_SMTP_USERNAME"
 message.send.backend.auth.type = "password"
-message.send.backend.auth.raw = "$ESCAPED_PASSWORD"
+message.send.backend.auth.raw = "$ESCAPED_SMTP_PASSWORD"
 
 # Attachment downloads
 downloads-dir = "$ESCAPED_DOWNLOADS_DIR"$GPG_BLOCK
@@ -172,8 +222,8 @@ if [ "$SET_DEFAULT" = "true" ]; then
 else
   printf '  Default: no\n'
 fi
-if [ -n "$GPG_LOCAL_USER" ]; then
-  printf '  GPG:     enabled (%s)\n' "$GPG_LOCAL_USER"
+if [ -n "$GPG_LOCAL_USER" ] || [ -n "$GPG_FINGERPRINT" ]; then
+  printf '  GPG:     enabled (%s)\n' "${GPG_FINGERPRINT:-$GPG_LOCAL_USER}"
 else
   printf '  GPG:     disabled\n'
 fi
