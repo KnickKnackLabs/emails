@@ -27,7 +27,9 @@ fi
 # Build tsconfig override for JSX and import resolution.
 # Points at the emails package src/ for the JSX runtime and components.
 EMAILS_DIR="$MISE_CONFIG_ROOT"
-TSCONFIG=$(mktemp)
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf "$WORK_DIR"' EXIT
+TSCONFIG="$WORK_DIR/tsconfig.json"
 cat > "$TSCONFIG" <<CONF
 {
   "compilerOptions": {
@@ -40,16 +42,22 @@ cat > "$TSCONFIG" <<CONF
   }
 }
 CONF
-trap 'rm -f "$TSCONFIG"' EXIT
 
 # Parse variadic args for passthrough
 ARGS=()
 if [ -n "${usage_args:-}" ]; then
+  ARG_LINES=$(printf '%s' "$usage_args" | xargs printf '%s\n')
   while IFS= read -r arg; do
     ARGS+=("$arg")
-  done < <(printf '%s' "${usage_args}" | xargs printf '%s\n')
+  done <<< "$ARG_LINES"
 fi
 
 # Run the TSX file with bun, passing through any extra args.
 # Filter the spurious "directory mismatch" warning from oven-sh/bun#22023.
-bun run --tsconfig-override "$TSCONFIG" "$FILE" ${ARGS[@]+"${ARGS[@]}"} 2> >(grep -v "Internal error: directory mismatch" >&2)
+if bun run --tsconfig-override "$TSCONFIG" "$FILE" ${ARGS[@]+"${ARGS[@]}"} 2> "$WORK_DIR/stderr"; then
+  STATUS=0
+else
+  STATUS=$?
+fi
+awk '!/Internal error: directory mismatch/' "$WORK_DIR/stderr" >&2
+exit "$STATUS"

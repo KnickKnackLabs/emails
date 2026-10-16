@@ -112,8 +112,12 @@ email_format_mailbox() {
 
 email_account_names() {
   [ -f "$CONFIG_FILE" ] || return 0
-  grep -E '^\[accounts\.[A-Za-z0-9_-]+\]$' "$CONFIG_FILE" 2>/dev/null \
-    | sed 's/^\[accounts\.//; s/\]$//'
+  awk '/^\[accounts\.[A-Za-z0-9_-]+\]$/ {
+    name = $0
+    sub(/^\[accounts\./, "", name)
+    sub(/\]$/, "", name)
+    print name
+  }' "$CONFIG_FILE"
 }
 
 email_account_exists() {
@@ -147,13 +151,14 @@ email_account_field() {
 }
 
 email_default_accounts() {
-  local account
+  local account accounts
+  accounts=$(email_account_names) || return
   while IFS= read -r account; do
     [ -n "$account" ] || continue
     if [ "$(email_account_field "$account" default)" = "true" ]; then
       printf '%s\n' "$account"
     fi
-  done < <(email_account_names)
+  done <<< "$accounts"
 }
 
 email_choose_account() {
@@ -171,7 +176,7 @@ EOF
     return 1
   fi
 
-  accounts="$(email_account_names)"
+  accounts="$(email_account_names)" || return
   if [ -z "$accounts" ]; then
     cat >&2 <<EOF
 No email accounts configured in $CONFIG_FILE.
@@ -201,7 +206,7 @@ EOF
     return 0
   fi
 
-  defaults="$(email_default_accounts)"
+  defaults="$(email_default_accounts)" || return
   default_count=$(printf '%s\n' "$defaults" | sed '/^$/d' | wc -l | tr -d ' ')
   if [ "$default_count" -eq 1 ]; then
     printf '%s\n' "$defaults" | sed -n '1p'

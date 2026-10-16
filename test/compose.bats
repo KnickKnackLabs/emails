@@ -245,6 +245,32 @@ TSX
   [[ "$output" == *"Spacer height must be a finite non-negative number"* ]]
 }
 
+@test "compose: filters the known warning while preserving renderer failure and other diagnostics" {
+  cat > "$BATS_TEST_TMPDIR/failure.tsx" <<'TSX'
+console.error("Internal error: directory mismatch");
+console.error("render failed deliberately");
+process.exit(23);
+TSX
+
+  run emails compose "$BATS_TEST_TMPDIR/failure.tsx"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"render failed deliberately"* ]]
+  [[ "$output" != *"Internal error: directory mismatch"* ]]
+}
+
+@test "compose: suppressing every diagnostic does not fail a successful render" {
+  cat > "$BATS_TEST_TMPDIR/warning.tsx" <<'TSX'
+console.error("Internal error: directory mismatch");
+console.log("rendered successfully");
+TSX
+
+  run emails compose "$BATS_TEST_TMPDIR/warning.tsx"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = 'rendered successfully' ]
+}
+
 @test "compose: fails without arguments" {
   run emails compose
   [ "$status" -ne 0 ]
