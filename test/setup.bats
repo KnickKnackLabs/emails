@@ -109,7 +109,57 @@ setup_account() {
     --smtp-host smtp.example.test
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *"provide the password explicitly with --password-stdin"* ]]
+  [[ "$output" == *"choose exactly one of --password-stdin or --credentials-stdin"* ]]
+}
+
+@test "account setup: independent transport credentials and encryption stay separate" {
+  export TEST_CREDENTIALS='{"imap":{"username":"reader","password":"incoming-secret"},"smtp":{"username":"sender","password":"outgoing-secret"}}'
+  run bash -c 'printf "%s" "$TEST_CREDENTIALS" | emails account:setup work --address work@example.test --imap-host imap.example.test --smtp-host smtp.example.test --credentials-stdin --imap-encryption starttls --smtp-encryption tls --gpg-fingerprint 1234567890ABCDEF1234567890ABCDEF12345678'
+
+  [ "$status" -eq 0 ]
+  grep -Fx 'backend.login = "reader"' "$HIMALAYA_CONFIG"
+  grep -Fx 'backend.auth.raw = "incoming-secret"' "$HIMALAYA_CONFIG"
+  grep -Fx 'message.send.backend.login = "sender"' "$HIMALAYA_CONFIG"
+  grep -Fx 'message.send.backend.auth.raw = "outgoing-secret"' "$HIMALAYA_CONFIG"
+  grep -Fx 'backend.encryption.type = "starttls"' "$HIMALAYA_CONFIG"
+  grep -Fx 'message.send.backend.encryption.type = "tls"' "$HIMALAYA_CONFIG"
+  grep -F "gpg --local-user '1234567890ABCDEF1234567890ABCDEF12345678!' --sign" "$HIMALAYA_CONFIG"
+  [[ "$output" != *incoming-secret* && "$output" != *outgoing-secret* ]]
+}
+
+@test "account setup: malformed credential JSON fails without writing or leaking" {
+  run bash -c 'printf "%s" "incoming-secret-not-json" | emails account:setup work --address work@example.test --imap-host imap.example.test --smtp-host smtp.example.test --credentials-stdin'
+
+  [ "$status" -ne 0 ]
+  [[ "$output" != *incoming-secret-not-json* ]]
+  [ ! -e "$HIMALAYA_CONFIG" ]
+}
+
+@test "account setup: incomplete and control-bearing credential bundles fail closed" {
+  for credentials in '{"imap":{"username":"reader","password":"secret"}}' '{"imap":{"username":"reader","password":"secret\n"},"smtp":{"username":"sender","password":"outgoing"}}'; do
+    export TEST_CREDENTIALS="$credentials"
+    run bash -c 'printf "%s" "$TEST_CREDENTIALS" | emails account:setup work --address work@example.test --imap-host imap.example.test --smtp-host smtp.example.test --credentials-stdin'
+
+    [ "$status" -ne 0 ]
+    [ ! -e "$HIMALAYA_CONFIG" ]
+  done
+}
+
+@test "account setup: rejects conflicting credential inputs" {
+  run bash -c 'printf secret | emails account:setup work --address work@example.test --imap-host imap.example.test --smtp-host smtp.example.test --credentials-stdin --password-stdin'
+
+  [ "$status" -ne 0 ]
+  [ ! -e "$HIMALAYA_CONFIG" ]
+}
+
+@test "account setup: rejects incomplete fingerprints and unsupported encryption" {
+  run setup_account work work@example.test --gpg-fingerprint 12345678
+  [ "$status" -ne 0 ]
+  [ ! -e "$HIMALAYA_CONFIG" ]
+
+  run setup_account work work@example.test --imap-encryption none
+  [ "$status" -ne 0 ]
+  [ ! -e "$HIMALAYA_CONFIG" ]
 }
 
 @test "account default: ignores nested account tables" {
